@@ -151,7 +151,7 @@ const Home = () => {
     try {
       setStatus("Creating meetup...");
 
-      const createRes = await fetch("/api/meetups", {
+      const createRes = await fetch(apiUrl("/api/meetups"), {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({
@@ -171,7 +171,7 @@ const Home = () => {
       setMeetupId(newMeetupId);
       setMeetupIdInput(newMeetupId);
 
-      const locationRes = await fetch(`/api/meetups/${newMeetupId}/location`, {
+      const locationRes = await fetch(apiUrl(`/api/meetups/${newMeetupId}/location`), {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({
@@ -179,7 +179,8 @@ const Home = () => {
           lng: myLocation.lng,
           source: "gps",
         }),
-      });
+      }
+    );
 
       const locationData = await locationRes.json().catch(() => ({}));
 
