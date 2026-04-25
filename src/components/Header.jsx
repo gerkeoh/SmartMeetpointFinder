@@ -18,7 +18,6 @@ function Header({ isLoggedIn, onLogout }) {
           <>
             <Link to="/" className="nav-link">HOME</Link>
             <Link to="/register" className="nav-link">REGISTER</Link>
-            <Link to="/map" className="nav-link">MAP</Link>
           </>
         )}
 
