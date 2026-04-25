@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 const Footer = () => {
   return (
     <footer className="footer">
-      © OpenStreetMap contributors
+      © 2026 SMART MEETPOINT FINDER.
+
+      OpenStreetMap contributors
     </footer>
   );
 };

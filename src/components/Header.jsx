@@ -1,34 +1,51 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from 'react-router-dom';
+import logo from "../assets/SMARTMEETPOINTFINDER_LOGO_NOBACK.png";
 
-const Header = () => {
-  const navigate = useNavigate();
-  const token = localStorage.getItem("token");
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
-
+function Header({ isLoggedIn, onLogout }) {
   return (
     <header className="header">
-      <h1 className="logo">Smart Meet Point Finder</h1>
+      <div className="header-logo">
+                <div className="logo-container">
+                    <Link to="/">
+                        <img src={logo} alt="Logo" className="logo" />
+                    </Link>
+                </div>
+                <h1 className="site-title">SMART MEETPOINT FINDER</h1>
+            </div>
 
-      <nav className="nav-links">
-        <Link to="/">Home</Link>
-        <Link to="/friends">Friends</Link>
-        <Link to="/profile">Profile</Link>
+      <nav className="header-nav">
+        {!isLoggedIn && (
+          <>
+            <Link to="/" className="nav-link">HOME</Link>
+            <Link to="/register" className="nav-link">REGISTER</Link>
+            <Link to="/map" className="nav-link">MAP</Link>
+          </>
+        )}
 
-        {!token ? (
-          <Link to="/login">Login / Register</Link>
-        ) : (
-          <button id="logout-link" type="button" onClick={logout}>
-            Logout
-          </button>
+        {isLoggedIn && (
+          <>
+            <Link to="/map" className="nav-link">MAP</Link>
+            <Link to="/friends" className="nav-link">FRIENDS</Link>
+            <Link to="/profile" className="nav-link">PROFILE</Link>
+            <span
+              id="logout-link"
+              className="nav-link"
+              onClick={onLogout}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  onLogout();
+                }
+              }}
+            >
+              LOGOUT
+            </span>
+          </>
         )}
       </nav>
     </header>
   );
-};
+}
 
 export default Header;

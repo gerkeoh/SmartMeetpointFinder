@@ -1,6 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { apiUrl } from "../api";
+import "../styles/Login.css";
+
+import user_icon from "../assets/person.png";
+import email_icon from "../assets/email.png";
+import password_icon from "../assets/password.png";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -35,49 +40,83 @@ const Register = () => {
   };
 
   return (
-    <div className="page">
-      <section className="section_1">
-        <h1>Register</h1>
-      </section>
+    <div className="whole-container">
+      <div className="text-container">
+        <span>Join Smart MeetPoint Finder</span>
+      </div>
 
-      <section className="section_2">
-        <form onSubmit={onSubmit}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+      <div className="login-container">
+        <div className="header">
+          <div className="text">Register</div>
+          <div className="underline"></div>
+        </div>
 
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+        <form onSubmit={onSubmit} className="inputs">
+          <div className="input">
+            <img src={user_icon} alt="User Icon" />
+            <input
+              type="text"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="Password (min 8 chars)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="input">
+            <img src={email_icon} alt="Email Icon" />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
+          <div className="input">
+            <img src={password_icon} alt="Password Icon" />
+            <input
+              type="password"
+              placeholder="Password (min 8 chars)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
 
-          <button type="submit">Create Account</button>
-          {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+          <div className="input">
+            <img src={password_icon} alt="Confirm Password Icon" />
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+
+          {msg && (
+            <p>
+              {msg}
+            </p>
+          )}
+
+          <div className="submit-container">
+            <button type="submit" className="submit">
+              Create Account
+            </button>
+          </div>
         </form>
 
-        <p>
-          Already have an account? <Link to="/login">Login</Link>
-        </p>
-      </section>
+        <div className="submit-container">
+          <span>Already have an account?</span>
+            <div
+              className="submit"
+              onClick={() => {
+                navigate("/login");
+              }}
+            >
+              Login
+            </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -91,14 +91,11 @@ const Friends = () => {
     <div className="page">
       <section className="section_1">
         <h1>Friends</h1>
-      </section>
-
-      <section className="section_2">
         {!token ? (
           <p>You must be logged in to manage friends.</p>
         ) : (
           <>
-            <form onSubmit={searchUsers} style={{ display: "flex", gap: 8 }}>
+            <form onSubmit={searchUsers}>
               <input
                 type="text"
                 placeholder="Search by username or email"
@@ -109,22 +106,15 @@ const Friends = () => {
             </form>
 
             {results.length > 0 && (
-              <div style={{ marginTop: 16 }}>
+              <div>
                 <h3>Results</h3>
                 {results.map((u) => (
                   <div
                     key={u.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 0",
-                      borderBottom: "1px solid #ddd",
-                    }}
                   >
                     <div>
                       <strong>{u.username}</strong>
-                      <div style={{ fontSize: 12 }}>{u.email}</div>
+                      <div>{u.email}</div>
                     </div>
                     <button type="button" onClick={() => addFriend(u.id)}>
                       Add
@@ -134,7 +124,7 @@ const Friends = () => {
               </div>
             )}
 
-            <div style={{ marginTop: 20 }}>
+            <div>
               <h3>Your Friends</h3>
               {friends.length === 0 ? (
                 <p>No friends yet.</p>
@@ -142,17 +132,10 @@ const Friends = () => {
                 friends.map((f) => (
                   <div
                     key={f.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 0",
-                      borderBottom: "1px solid #ddd",
-                    }}
                   >
                     <div>
                       <strong>{f.username}</strong>
-                      <div style={{ fontSize: 12 }}>{f.email}</div>
+                      <div>{f.email}</div>
                     </div>
                     <button type="button" onClick={() => removeFriend(f.id)}>
                       Remove
@@ -164,7 +147,7 @@ const Friends = () => {
           </>
         )}
 
-        {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+        {msg && <p>{msg}</p>}
       </section>
     </div>
   );

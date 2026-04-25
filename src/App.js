@@ -8,7 +8,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Friends from "./pages/Friends";
 import Profile from "./pages/Profile";
-import "./style.css";
+import MapPage from "./pages/MapPage";
+import "./styles/style.css";
+import "./styles/Login.css"
 
 function App() {
   return (
@@ -20,6 +22,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/map" element={<MapPage />} />
       </Routes>
       <Footer />
     </Router>

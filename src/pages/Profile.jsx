@@ -91,10 +91,8 @@ const Profile = () => {
     <div className="page">
       <section className="section_1">
         <h1>Profile</h1>
-      </section>
 
-      <section className="section_2">
-        <div style={{ marginBottom: 16 }}>
+        <div>
           <p><strong>Username:</strong> {username}</p>
           <p><strong>Email:</strong> {email}</p>
           <p><strong>Friends:</strong> {friendCount}</p>
@@ -113,15 +111,14 @@ const Profile = () => {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={4}
-            style={{ width: "100%", marginTop: 10 }}
           />
 
-          <button type="submit" style={{ marginTop: 10 }}>
+          <button type="submit">
             Save Profile
           </button>
         </form>
 
-        {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+        {msg && <p>{msg}</p>}
       </section>
     </div>
   );
