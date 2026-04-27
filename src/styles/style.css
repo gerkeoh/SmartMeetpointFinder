@@ -9,7 +9,7 @@
     color: #000000;
 }
 
-body {
+.page-body {
     background: linear-gradient(to bottom, #ffbc9a, #f97316);
     background-size: auto;
     background-position: top center;
