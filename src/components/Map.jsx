@@ -16,33 +16,10 @@ function createUserIcon(name, color) {
   const shortName = name?.slice(0, 8) || "User";
 
   return L.divIcon({
-    className: "",
+    className: "custom-pin",
     html: `
-      <div style="
-        width: 58px;
-        height: 58px;
-        background: ${color};
-        border: 3px solid white;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-      ">
-        <span style="
-          transform: rotate(45deg);
-          color: white;
-          font-size: 10px;
-          font-weight: bold;
-          max-width: 44px;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
-          text-align: center;
-        ">
-          ${shortName}
-        </span>
+      <div class="pin" style="background:${color}">
+        <span class="pin-text">${shortName}</span>
       </div>
     `,
     iconSize: [58, 58],
@@ -113,10 +90,7 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
     if (meetingPoint) {
       const radius = L.circleMarker([meetingPoint.lat, meetingPoint.lng], {
         radius: 30,
-        color: "#000000",
-        fillColor: "#f97316",
-        fillOpacity: 0.15,
-        weight: 2,
+        className: "meeting-radius",
       })
         .addTo(mapRef.current)
         .bindPopup("Suggested meeting area");

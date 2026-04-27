@@ -158,3 +158,38 @@
   color: #D9D9D9;
   flex-direction:column
 }
+
+.custom-pin {
+  background: transparent;
+  border: none;
+}
+
+.pin {
+  width: 58px;
+  height: 58px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.pin-text {
+  transform: rotate(45deg);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  max-width: 44px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.meeting-radius {
+  stroke: #f97316;
+  fill: #f97316;
+  fill-opacity: 0.2;
+}
