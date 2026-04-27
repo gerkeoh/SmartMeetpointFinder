@@ -38,12 +38,7 @@ function App() {
         />
 
         <Route path="/register" element={<Register />} />
-
-        <Route
-          path="/home"
-          element={isLoggedIn ? <Home /> : <Navigate to="/login" />}
-        />
-
+        
         <Route
           path="/friends"
           element={isLoggedIn ? <Friends /> : <Navigate to="/login" />}

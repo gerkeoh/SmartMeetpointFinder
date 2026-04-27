@@ -23,6 +23,7 @@ function Header({ isLoggedIn, onLogout }) {
 
         {isLoggedIn && (
           <>
+            <Link to="/" className="nav-link">HOME</Link>
             <Link to="/map" className="nav-link">MAP</Link>
             <Link to="/friends" className="nav-link">FRIENDS</Link>
             <Link to="/profile" className="nav-link">PROFILE</Link>
