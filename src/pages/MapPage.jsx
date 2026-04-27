@@ -361,22 +361,25 @@ const MapPage = () => {
 
         <div className="text">
           <h3>Select Friends</h3>
-          {friends.length === 0 ? (
-            <p>No friends available.</p>
-          ) : (
-            friends.map((friend) => (
-              <label key={friend.id}>
-                <input
-                  type="checkbox"
-                  checked={selectedFriendIds.includes(friend.id)}
-                  onChange={() => toggleFriend(friend.id)}
-                />
-                <span>
-                  {friend.username} ({friend.email})
-                </span>
-              </label>
-            ))
-          )}
+
+          <div className="friends-list">
+            {friends.length === 0 ? (
+              <p>No friends available.</p>
+            ) : (
+              friends.map((friend) => (
+                <label className="friend-item" key={friend.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedFriendIds.includes(friend.id)}
+                    onChange={() => toggleFriend(friend.id)}
+                  />
+                  <span>
+                    {friend.username} ({friend.email})
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="text">

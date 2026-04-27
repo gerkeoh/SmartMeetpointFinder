@@ -152,3 +152,28 @@
     min-width: 400px;
     border: 2px solid #f97316;
 }
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.friend-item input {
+  width: auto;
+  min-width: auto;
+  margin: 0;
+}
+.friend-item:hover {
+  background: #444;
+}
