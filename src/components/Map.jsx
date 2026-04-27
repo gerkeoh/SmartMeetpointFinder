@@ -111,9 +111,9 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
     });
 
     if (meetingPoint) {
-      const radius = L.circle([meetingPoint.lat, meetingPoint.lng], {
-        radius: 500,
-        color: "#f97316",
+      const radius = L.circleMarker([meetingPoint.lat, meetingPoint.lng], {
+        radius: 30,
+        color: "#000000",
         fillColor: "#f97316",
         fillOpacity: 0.15,
         weight: 2,
