@@ -10,14 +10,38 @@ const MEETUPS = "meetups";
 const PARTICIPANTS = "participants";
 const CONNECTIONS = "connections";
 
+function toObjectId(id) {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
+
+  return new ObjectId(id);
+}
+
 router.post("/meetups", requireAuth, async (req, res) => {
   try {
     const creatorId = new ObjectId(req.user.id);
     const { title = "", invitedFriendIds = [] } = req.body || {};
 
+    const cleanTitle = title.trim().slice(0, 80);
+
+    if (!cleanTitle) {
+      return res.status(400).json({
+        message: "Meetup name is required.",
+      });
+    }
+
     if (!Array.isArray(invitedFriendIds) || invitedFriendIds.length === 0) {
       return res.status(400).json({
         message: "At least one friend must be invited.",
+      });
+    }
+
+    const invitedObjectIds = invitedFriendIds.map(toObjectId);
+
+    if (invitedObjectIds.some((id) => !id)) {
+      return res.status(400).json({
+        message: "Invalid invited friend id.",
       });
     }
 
@@ -26,11 +50,11 @@ router.post("/meetups", requireAuth, async (req, res) => {
     const validEdges = await connections
       .find({
         userId: creatorId,
-        friendId: { $in: invitedFriendIds.map((id) => new ObjectId(id)) },
+        friendId: { $in: invitedObjectIds },
       })
       .toArray();
 
-    if (validEdges.length !== invitedFriendIds.length) {
+    if (validEdges.length !== invitedObjectIds.length) {
       return res.status(403).json({
         message: "You can only create meetups with your friends.",
       });
@@ -40,10 +64,10 @@ router.post("/meetups", requireAuth, async (req, res) => {
     const participants = db.collection(PARTICIPANTS);
 
     const meetupDoc = {
-      title: title.trim().slice(0, 80),
+      title: cleanTitle,
       creatorId,
-      invitedUserIds: invitedFriendIds.map((id) => new ObjectId(id)),
-      status: "collecting_locations",
+      invitedUserIds: invitedObjectIds,
+      status: "pending_responses",
       createdAt: new Date(),
       updatedAt: new Date(),
       finalLocation: null,
@@ -54,24 +78,24 @@ router.post("/meetups", requireAuth, async (req, res) => {
     const meetupResult = await meetups.insertOne(meetupDoc);
     const meetupId = meetupResult.insertedId;
 
-    const usersCol = db.collection("users");
-
-    const friendUsers = await usersCol
-      .find({ _id: { $in: invitedFriendIds.map((id) => new ObjectId(id)) } })
-      .toArray();
-
     const participantDocs = [
       {
         meetupId,
         userId: creatorId,
+        role: "creator",
+        inviteStatus: "accepted",
+        respondedAt: new Date(),
         joinedAt: new Date(),
         location: null,
         locationSource: null,
       },
-      ...friendUsers.map((user) => ({
+      ...invitedObjectIds.map((friendId) => ({
         meetupId,
-        userId: user._id,
-        joinedAt: new Date(),
+        userId: friendId,
+        role: "invitee",
+        inviteStatus: "pending",
+        respondedAt: null,
+        joinedAt: null,
         location: null,
         locationSource: null,
       })),
@@ -80,7 +104,7 @@ router.post("/meetups", requireAuth, async (req, res) => {
     await participants.insertMany(participantDocs);
 
     return res.status(201).json({
-      message: "Meetup created.",
+      message: "Meetup created. Invitations sent.",
       meetupId: meetupId.toString(),
     });
   } catch (err) {
@@ -89,10 +113,59 @@ router.post("/meetups", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/meetups", requireAuth, async (req, res) => {
+  try {
+    const currentUserId = new ObjectId(req.user.id);
+
+    const participantsCol = db.collection(PARTICIPANTS);
+    const meetupsCol = db.collection(MEETUPS);
+
+    const myParticipantRows = await participantsCol
+      .find({ userId: currentUserId })
+      .sort({ joinedAt: -1 })
+      .toArray();
+
+    const meetupIds = myParticipantRows.map((p) => p.meetupId);
+
+    const meetupDocs = await meetupsCol
+      .find({ _id: { $in: meetupIds } })
+      .sort({ updatedAt: -1 })
+      .toArray();
+
+    const participantMap = new Map(
+      myParticipantRows.map((p) => [p.meetupId.toString(), p])
+    );
+
+    const meetups = meetupDocs.map((meetup) => {
+      const myParticipant = participantMap.get(meetup._id.toString());
+
+      return {
+        id: meetup._id.toString(),
+        title: meetup.title,
+        status: meetup.status,
+        isCreator: meetup.creatorId.equals(currentUserId),
+        myInviteStatus: myParticipant?.inviteStatus || "pending",
+        createdAt: meetup.createdAt,
+        updatedAt: meetup.updatedAt,
+        suggestedMeetingPoint: meetup.suggestedMeetingPoint || null,
+      };
+    });
+
+    return res.status(200).json({ meetups });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
 router.get("/meetups/:meetupId", requireAuth, async (req, res) => {
   try {
-    const meetupId = new ObjectId(req.params.meetupId);
+    const meetupId = toObjectId(req.params.meetupId);
     const currentUserId = new ObjectId(req.user.id);
+
+    if (!meetupId) {
+      return res.status(400).json({ message: "Invalid meetup id." });
+    }
 
     const meetupsCol = db.collection(MEETUPS);
     const participantsCol = db.collection(PARTICIPANTS);
@@ -135,7 +208,10 @@ router.get("/meetups/:meetupId", requireAuth, async (req, res) => {
         username: user?.username || "",
         email: user?.email || "",
         isCurrentUser: p.userId.equals(currentUserId),
-        location: p.location || null,
+        isCreator: p.userId.equals(meetup.creatorId),
+        role: p.role || "invitee",
+        inviteStatus: p.inviteStatus || "pending",
+        location: p.inviteStatus === "accepted" ? p.location || null : null,
         locationSource: p.locationSource || null,
         joinedAt: p.joinedAt || null,
       };
@@ -146,6 +222,8 @@ router.get("/meetups/:meetupId", requireAuth, async (req, res) => {
         id: meetup._id.toString(),
         title: meetup.title,
         status: meetup.status,
+        isCreator: meetup.creatorId.equals(currentUserId),
+        myInviteStatus: currentParticipant.inviteStatus || "pending",
         suggestedMeetingPoint: meetup.suggestedMeetingPoint || null,
         algorithmMetrics: meetup.algorithmMetrics || null,
       },
@@ -158,11 +236,81 @@ router.get("/meetups/:meetupId", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/meetups/:meetupId/respond", requireAuth, async (req, res) => {
+  try {
+    const meetupId = toObjectId(req.params.meetupId);
+    const userId = new ObjectId(req.user.id);
+    const { response } = req.body || {};
+
+    if (!meetupId) {
+      return res.status(400).json({ message: "Invalid meetup id." });
+    }
+
+    if (!["accepted", "rejected"].includes(response)) {
+      return res.status(400).json({
+        message: "Response must be accepted or rejected.",
+      });
+    }
+
+    const participantsCol = db.collection(PARTICIPANTS);
+    const meetupsCol = db.collection(MEETUPS);
+
+    const participant = await participantsCol.findOne({ meetupId, userId });
+
+    if (!participant) {
+      return res.status(404).json({ message: "Invitation not found." });
+    }
+
+    if (participant.role === "creator") {
+      return res.status(400).json({
+        message: "The creator is already accepted.",
+      });
+    }
+
+    await participantsCol.updateOne(
+      { meetupId, userId },
+      {
+        $set: {
+          inviteStatus: response,
+          respondedAt: new Date(),
+          joinedAt: response === "accepted" ? new Date() : null,
+          location: null,
+          locationSource: null,
+        },
+      }
+    );
+
+    await meetupsCol.updateOne(
+      { _id: meetupId },
+      {
+        $set: {
+          status: "collecting_locations",
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({
+      message:
+        response === "accepted"
+          ? "Invitation accepted."
+          : "Invitation rejected.",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
 router.post("/meetups/:meetupId/location", requireAuth, async (req, res) => {
   try {
-    const meetupId = new ObjectId(req.params.meetupId);
+    const meetupId = toObjectId(req.params.meetupId);
     const userId = new ObjectId(req.user.id);
     const { lat, lng, source } = req.body || {};
+
+    if (!meetupId) {
+      return res.status(400).json({ message: "Invalid meetup id." });
+    }
 
     if (typeof lat !== "number" || typeof lng !== "number") {
       return res.status(400).json({ message: "Valid lat/lng required." });
@@ -174,25 +322,33 @@ router.post("/meetups/:meetupId/location", requireAuth, async (req, res) => {
       });
     }
 
-    const participants = db.collection(PARTICIPANTS);
-    const meetups = db.collection(MEETUPS);
+    const participantsCol = db.collection(PARTICIPANTS);
+    const meetupsCol = db.collection(MEETUPS);
 
-    const result = await participants.updateOne(
+    const participant = await participantsCol.findOne({ meetupId, userId });
+
+    if (!participant) {
+      return res.status(404).json({ message: "Participant record not found." });
+    }
+
+    if (participant.inviteStatus !== "accepted") {
+      return res.status(403).json({
+        message: "Accept the invitation before sharing your location.",
+      });
+    }
+
+    await participantsCol.updateOne(
       { meetupId, userId },
       {
         $set: {
           location: { lat, lng, updatedAt: new Date() },
           locationSource: source,
-          joinedAt: new Date(),
+          joinedAt: participant.joinedAt || new Date(),
         },
       }
     );
 
-    if (!result.matchedCount) {
-      return res.status(404).json({ message: "Participant record not found." });
-    }
-
-    await meetups.updateOne(
+    await meetupsCol.updateOne(
       { _id: meetupId },
       {
         $set: {
@@ -211,37 +367,51 @@ router.post("/meetups/:meetupId/location", requireAuth, async (req, res) => {
 
 router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
   try {
-    const meetupId = new ObjectId(req.params.meetupId);
+    const meetupId = toObjectId(req.params.meetupId);
     const currentUserId = new ObjectId(req.user.id);
+
+    if (!meetupId) {
+      return res.status(400).json({ message: "Invalid meetup id." });
+    }
 
     const participantsCol = db.collection(PARTICIPANTS);
     const meetupsCol = db.collection(MEETUPS);
 
-    const currentParticipant = await participantsCol.findOne({
-      meetupId,
-      userId: currentUserId,
-    });
+    const meetup = await meetupsCol.findOne({ _id: meetupId });
 
-    if (!currentParticipant) {
+    if (!meetup) {
+      return res.status(404).json({ message: "Meetup not found." });
+    }
+
+    if (!meetup.creatorId.equals(currentUserId)) {
       return res.status(403).json({
-        message: "You do not have access to this meetup.",
+        message: "Only the meetup creator can calculate the meeting point.",
       });
     }
 
-    const participantDocs = await participantsCol
+    const acceptedParticipants = await participantsCol
       .find({
         meetupId,
-        location: { $ne: null },
+        inviteStatus: "accepted",
       })
       .toArray();
 
-    if (participantDocs.length < 2) {
+    const missingLocation = acceptedParticipants.filter((p) => !p.location);
+
+    if (acceptedParticipants.length < 2) {
       return res.status(400).json({
-        message: "At least two participant locations are required.",
+        message: "At least two accepted participants are required.",
       });
     }
 
-    const algorithmInput = participantDocs.map((p) => ({
+    if (missingLocation.length > 0) {
+      return res.status(400).json({
+        message:
+          "All accepted participants must share their location before calculating.",
+      });
+    }
+
+    const algorithmInput = acceptedParticipants.map((p) => ({
       userId: p.userId.toString(),
       lat: p.location.lat,
       lng: p.location.lng,
