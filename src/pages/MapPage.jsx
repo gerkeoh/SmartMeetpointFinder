@@ -356,7 +356,7 @@ const MapPage = () => {
         <div className="text">
           <div className="friend-dropdown-header" onClick={() => setDropdownOpen(!dropdownOpen)}>
             {selectedFriendIds.length > 0
-              ? `${selectedFriendIds.length} selected`
+              ? `${selectedFriendIds.length} friend${selectedFriendIds.length > 1 ? 's' : ''} selected`
               : "Select friends"}
           </div>
           {friends.length === 0 ? (
