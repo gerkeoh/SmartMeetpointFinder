@@ -347,15 +347,13 @@ const MapPage = () => {
             Calculate
           </button>
         </div>
-
+        
         <p>{status}</p>
 
         <div className="text-container">
 
 
         <div className="text">
-          <p>Select Friends</p>
-
           {friends.length === 0 ? (
             <p>No friends available.</p>
           ) : (
