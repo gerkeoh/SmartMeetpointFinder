@@ -300,21 +300,22 @@ const MapPage = () => {
             placeholder="Meetup title"
           />
         </div>
-
-        <div className="input">
-          <input
-            type="text"
-            value={meetupIdInput}
-            onChange={(e) => setMeetupIdInput(e.target.value)}
-            placeholder="Paste meetup ID to open a meetup"
-          />
+        <dix>
+          <div className="input">
+            <input
+              type="text"
+              value={meetupIdInput}
+              onChange={(e) => setMeetupIdInput(e.target.value)}
+              placeholder="Paste meetup ID to open a meetup"
+            />
+          </div>
           <button
             className="submit"
             onClick={() => loadMeetup(meetupIdInput.trim())}
           >
             Open Meetup
           </button>
-        </div>
+        </dix>
 
         <div className="submit-container">
 
