@@ -300,7 +300,7 @@ const MapPage = () => {
             placeholder="Meetup title"
           />
         </div>
-        <dix>
+        <div className="meetup-open-row">
           <div className="input">
             <input
               type="text"
@@ -309,13 +309,14 @@ const MapPage = () => {
               placeholder="Paste meetup ID to open a meetup"
             />
           </div>
-          <button
-            className="submit"
-            onClick={() => loadMeetup(meetupIdInput.trim())}
-          >
-            Open Meetup
-          </button>
-        </dix>
+
+            <button
+              className="submit"
+              onClick={() => loadMeetup(meetupIdInput.trim())}
+            >
+              Open Meetup
+            </button>
+        </div>
 
         <div className="submit-container">
 

@@ -250,3 +250,23 @@
   font-size: 14px;
   margin-bottom: 5px;
 }
+
+.meetup-open-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Make input take remaining space */
+.meetup-open-row .input {
+  flex: 1;
+  margin: 0;
+}
+
+/* Prevent button from stretching weirdly */
+.meetup-open-row .submit {
+  width: auto;
+  padding: 0 20px;
+}
