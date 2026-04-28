@@ -127,8 +127,14 @@ function dynamicSearchRadiusKm(participants, seedCenter) {
     haversineKm(p.lat, p.lng, seedCenter.lat, seedCenter.lng)
   );
 
-  const maxDistance = Math.max(...distances, 1);
-  return Math.min(Math.max(maxDistance * 0.6, 2), 15);
+  const maxDistance = Math.max(...distances);
+
+  if (maxDistance <= 0.5) return 0.15;   // same street/building area
+  if (maxDistance <= 2) return 0.3;      // same town/local area
+  if (maxDistance <= 10) return 0.75;    // nearby towns
+  if (maxDistance <= 30) return 1.5;     // city-to-city nearby
+  if (maxDistance <= 80) return 3;       // far apart
+  return 5;                              // very far apart
 }
 
 /**
@@ -170,7 +176,11 @@ export function calculateBestMeetingPoint(participants, options = {}) {
   }
 
   return {
-    meetingPoint: best.point,
+    meetingPoint: {
+      ...best.point,
+      radiusKm: Number(radiusKm.toFixed(2)),
+      radiusMeters: Math.round(radiusKm * 1000),
+    },
     metrics: {
       score: Number(best.score.toFixed(2)),
       maxTravelMinutes: Number(best.maxTime.toFixed(1)),

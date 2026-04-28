@@ -88,8 +88,8 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
     });
 
     if (meetingPoint) {
-      const radius = L.circleMarker([meetingPoint.lat, meetingPoint.lng], {
-        radius: 30,
+      const radius = L.circle([meetingPoint.lat, meetingPoint.lng], {
+        radius: meetingPoint.radiusMeters || 300,
         className: "meeting-radius",
       })
         .addTo(mapRef.current)
