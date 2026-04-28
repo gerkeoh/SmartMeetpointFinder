@@ -374,7 +374,7 @@ const MapPage = () => {
                         checked={selectedFriendIds.includes(friend.id)}
                         onChange={() => toggleFriend(friend.id)}
                       />
-                      {friend.username} ({friend.email})
+                      {friend.username}
                     </label>
                   ))}
                 </div>
