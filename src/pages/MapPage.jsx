@@ -16,6 +16,8 @@ const MapPage = () => {
   const [status, setStatus] = useState("");
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
 
   const authHeaders = useMemo(() => {
     return token
@@ -345,36 +347,41 @@ const MapPage = () => {
             Calculate
           </button>
         </div>
-        <div className="text-container">
 
         <p>{status}</p>
 
-        <div className="text">
-          <p>Participants with locations:</p>
-          {participantsWithLocation}
-        </div>
+        <div className="text-container">
+
 
         <div className="text">
           <p>Select Friends</p>
+
           {friends.length === 0 ? (
             <p>No friends available.</p>
           ) : (
-            <select
-              className="friend-dropdown"
-              multiple
-              value={selectedFriendIds}
-              onChange={(e) => {
-                const options = Array.from(e.target.selectedOptions);
-                const values = options.map((opt) => opt.value);
-                setSelectedFriendIds(values);
-              }}
-            >
-              {friends.map((friend) => (
-              <option key={friend.id} value={friend.id}>
-                {friend.username} ({friend.email})
-              </option>
-              ))}
-            </select>
+            <div className="friend-dropdown-container">
+      
+              <div className="friend-dropdown-header" onClick={() => setDropdownOpen(!dropdownOpen)}>
+                {selectedFriendIds.length > 0
+                  ? `${selectedFriendIds.length} selected`
+                  : "Select friends"}
+              </div>
+
+              {dropdownOpen && (
+                <div className="friend-dropdown-list">
+                  {friends.map((friend) => (
+                    <label key={friend.id} className="friend-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedFriendIds.includes(friend.id)}
+                        onChange={() => toggleFriend(friend.id)}
+                      />
+                      {friend.username} ({friend.email})
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
