@@ -217,26 +217,23 @@
 }
 
 .friend-dropdown-list {
-  width: 100%;
-  margin-top: 6px;
   background: #222;
-  font-size: 14px;
   color: #D9D9D9;
-  border: 2px solid #f97316;
-  border-radius: 8px;
-  padding: 8px;
+  padding: 10px 20px;
+  border-radius: 15px;
+  text-decoration: none;
+  display: inline-block;
+  border-radius: 6px;
+  margin-top: 5px;
   max-height: 150px;
   overflow-y: auto;
-  box-sizing: border-box;
+  padding: 8px;
 }
 
 .friend-option {
   display: flex;
-  flex-direction: row;
   align-items: center;
-  justify-content: flex-start;
   gap: 8px;
-  color: #D9D9D9;
   font-size: 14px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
