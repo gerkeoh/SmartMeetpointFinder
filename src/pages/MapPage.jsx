@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Map from "../components/Map";
 import { apiUrl } from "../api";
 import "../styles/Map.css";
@@ -9,8 +9,7 @@ const MapPage = () => {
   const [friends, setFriends] = useState([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [meetupId, setMeetupId] = useState("");
-  const [meetups, setMeetups] = useState([]);
-  const [activeMeetup, setActiveMeetup] = useState(null);
+  const [meetupIdInput, setMeetupIdInput] = useState("");
   const [myLocation, setMyLocation] = useState(null);
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
@@ -26,29 +25,8 @@ const MapPage = () => {
         }
       : {
           "Content-Type": "application/json",
-    };
+        };
   }, [token]);
-
-  const loadMeetups = useCallback(async () => {
-    if (!token) return;
-
-    try {
-      const res = await fetch(apiUrl("/api/meetups"), {
-        headers: authHeaders,
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setStatus(data.message || "Failed to load meetup invitations.");
-        return;
-      }
-
-      setMeetups(data.meetups || []);
-    } catch {
-      setStatus("Could not load meetup invitations.");
-    }
-  }, [token, authHeaders]);
 
   useEffect(() => {
     const loadFriends = async () => {
@@ -74,10 +52,6 @@ const MapPage = () => {
 
     loadFriends();
   }, [token, authHeaders]);
-
-  useEffect(() => {
-    loadMeetups();
-  }, [loadMeetups]);
 
   const toggleFriend = (friendId) => {
     setSelectedFriendIds((prev) =>
@@ -112,11 +86,6 @@ const MapPage = () => {
 
   const loadMeetup = async (id = meetupId) => {
     if (!token || !id) {
-      setMeetupId("");
-      setActiveMeetup(null);
-      setParticipants([]);
-      setFriendLocations([]);
-      setMeetingPoint(null);
       return;
     }
 
@@ -146,7 +115,7 @@ const MapPage = () => {
       const me = meetupParticipants.find((p) => p.isCurrentUser && p.location);
 
       setMeetupId(id);
-      setActiveMeetup(data.meetup || null);
+      setMeetupIdInput(id);
       setParticipants(meetupParticipants);
       setFriendLocations(others);
       setMeetingPoint(data.suggestedMeetingPoint || null);
@@ -170,8 +139,8 @@ const MapPage = () => {
       return;
     }
 
-    if (!title.trim()) {
-      setStatus("Name the meetup first.");
+    if (!myLocation) {
+      setStatus("Load your location first.");
       return;
     }
 
@@ -181,9 +150,9 @@ const MapPage = () => {
     }
 
     try {
-      setStatus("Creating meetup and sending invitations...");
+      setStatus("Creating meetup...");
 
-      const res = await fetch(apiUrl("/api/meetups"), {
+      const createRes = await fetch(apiUrl("/api/meetups"), {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({
@@ -192,58 +161,42 @@ const MapPage = () => {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const createData = await createRes.json().catch(() => ({}));
 
-      if (!res.ok) {
-        setStatus(data.message || "Failed to create meetup.");
+      if (!createRes.ok) {
+        setStatus(createData.message || "Failed to create meetup.");
         return;
       }
 
-      setMeetupId(data.meetupId);
-      await loadMeetups();
-      await loadMeetup(data.meetupId);
-      setStatus("Meetup created. Invitations sent.");
+      const newMeetupId = createData.meetupId;
+      setMeetupId(newMeetupId);
+      setMeetupIdInput(newMeetupId);
+
+      const locationRes = await fetch(apiUrl(`/api/meetups/${newMeetupId}/location`), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          lat: myLocation.lat,
+          lng: myLocation.lng,
+          source: "gps",
+        }),
+      }
+    );
+
+      const locationData = await locationRes.json().catch(() => ({}));
+
+      if (!locationRes.ok) {
+        setStatus(
+          locationData.message || "Meetup created, but location was not saved."
+        );
+        return;
+      }
+
+      setStatus("Meetup created. Your location has been saved.");
+      await loadMeetup(newMeetupId);
     } catch (error) {
       console.error(error);
       setStatus("Something went wrong while creating the meetup.");
-    }
-  };
-
-  const respondToMeetup = async (response) => {
-    if (!meetupId) {
-      setStatus("Select a meetup first.");
-      return;
-    }
-
-    try {
-      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/respond`), {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({ response }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setStatus(data.message || "Could not respond to invitation.");
-        return;
-      }
-
-      await loadMeetups();
-
-      if (response === "accepted") {
-        await loadMeetup(meetupId);
-        setStatus("Invitation accepted. You can now share your location.");
-      } else {
-        setMeetupId("");
-        setActiveMeetup(null);
-        setParticipants([]);
-        setFriendLocations([]);
-        setMeetingPoint(null);
-        setStatus("Invitation rejected.");
-      }
-    } catch {
-      setStatus("Something went wrong while responding.");
     }
   };
 
@@ -326,8 +279,6 @@ const MapPage = () => {
     }
   };
 
-  const currentParticipant = participants.find((p) => p.isCurrentUser);
-  const canShareLocation = currentParticipant?.responseStatus === "accepted";
   const participantsWithLocation = participants.filter((p) => p.location).length;
 
   return (
@@ -349,27 +300,28 @@ const MapPage = () => {
         </div>
 
         <div className="input">
-          <select value={meetupId} onChange={(e) => loadMeetup(e.target.value)}>
-            <option value="">Select meetup invitation</option>
-            {meetups.map((meetup) => (
-              <option key={meetup.id} value={meetup.id}>
-                {meetup.title} - {meetup.responseStatus}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            value={meetupIdInput}
+            onChange={(e) => setMeetupIdInput(e.target.value)}
+            placeholder="Paste meetup ID to open a meetup"
+          />
         </div>
 
         <div className="submit-container">
+          <button
+            className="submit"
+            onClick={() => loadMeetup(meetupIdInput.trim())}
+          >
+            Open Meetup
+          </button>
+
           <button className="submit" onClick={getMyLocation}>
             Use My Location
           </button>
 
 
-          <button
-            className="submit"
-            onClick={shareMyLocationToMeetup}
-            disabled={!meetupId || !canShareLocation}
-          >
+          <button className="submit" onClick={shareMyLocationToMeetup}>
             Share Location
           </button>
 
@@ -385,38 +337,21 @@ const MapPage = () => {
             Refresh
           </button>
 
-          {activeMeetup?.isCreator && (
-            <button
-              className="submit"
-              onClick={calculateMeetup}
-              disabled={!meetupId || participantsWithLocation < 2}
-            >
-              Calculate Meetup
-            </button>
-          )}
+          <button
+            className="submit"
+            onClick={calculateMeetup}
+            disabled={!meetupId || participantsWithLocation < 2}
+          >
+            Calculate
+          </button>
         </div>
-
-        {activeMeetup &&
-          !activeMeetup.isCreator &&
-          currentParticipant?.responseStatus === "pending" && (
-          <div className="submit-container">
-            <button
-              className="submit"
-              onClick={() => respondToMeetup("accepted")}
-            >
-              Accept Invitation
-            </button>
-
-            <button
-              className="submit"
-              onClick={() => respondToMeetup("rejected")}
-            >
-              Reject Invitation
-            </button>
-          </div>
+        <div className="text-container">
+        {meetupId && (
+          <p>
+            <strong>Meetup ID:</strong> {meetupId}
+          </p>
         )}
 
-        <div className="text-container">
         <p>{status}</p>
 
         <div className="text">
@@ -455,13 +390,9 @@ const MapPage = () => {
                     : participant.username || "Friend"}
                 </strong>
                 {" - "}
-                {participant.responseStatus === "pending"
-                  ? "Invitation pending"
-                  : participant.responseStatus === "rejected"
-                  ? "Rejected"
-                  : participant.location
+                {participant.location
                   ? `${participant.location.lat}, ${participant.location.lng}`
-                  : "Accepted - no location shared yet"}
+                  : "No location shared yet"}
               </div>
             ))
           )}
