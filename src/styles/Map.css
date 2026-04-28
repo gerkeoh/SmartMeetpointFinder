@@ -193,3 +193,16 @@
   fill: #f97316;
   fill-opacity: 0.2;
 }
+
+.friend-dropdown {
+  width: 100%;
+  max-width: 400px;
+  height: 120px;
+  background: #D9D9D9;
+  color: #222;
+  border-radius: 6px;
+  padding: 5px;
+  border: none;
+  outline: none;
+  font-size: 16px;
+}

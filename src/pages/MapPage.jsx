@@ -359,16 +359,22 @@ const MapPage = () => {
           {friends.length === 0 ? (
             <p>No friends available.</p>
           ) : (
-            friends.map((friend) => (
-              <label key={friend.id}>
-                <input
-                  type="checkbox"
-                  checked={selectedFriendIds.includes(friend.id)}
-                  onChange={() => toggleFriend(friend.id)}
-                />
+            <select
+              className="friend-dropdown"
+              multiple
+              value={selectedFriendIds}
+              onChange={(e) => {
+                const options = Array.from(e.target.selectedOptions);
+                const values = options.map((opt) => opt.value);
+                setSelectedFriendIds(values);
+              }}
+            >
+              {friends.map((friend) => (
+              <option key={friend.id} value={friend.id}>
                 {friend.username} ({friend.email})
-              </label>
-            ))
+              </option>
+              ))}
+            </select>
           )}
         </div>
 
