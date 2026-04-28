@@ -347,7 +347,7 @@ const MapPage = () => {
             Calculate
           </button>
         </div>
-
+        
         <p>{status}</p>
 
         <div className="text-container">
@@ -359,8 +359,10 @@ const MapPage = () => {
           ) : (
             <div className="friend-dropdown-container">
       
-              <div className="friend-dropdown-header">
-                "Select friends"
+              <div className="friend-dropdown-header" onClick={() => setDropdownOpen(!dropdownOpen)}>
+                {selectedFriendIds.length > 0
+                  ? `${selectedFriendIds.length} selected`
+                  : "Select friends"}
               </div>
 
               {dropdownOpen && (
