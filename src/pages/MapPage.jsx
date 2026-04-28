@@ -308,15 +308,15 @@ const MapPage = () => {
             onChange={(e) => setMeetupIdInput(e.target.value)}
             placeholder="Paste meetup ID to open a meetup"
           />
-        </div>
-
-        <div className="submit-container">
           <button
             className="submit"
             onClick={() => loadMeetup(meetupIdInput.trim())}
           >
             Open Meetup
           </button>
+        </div>
+
+        <div className="submit-container">
 
           <button className="submit" onClick={getMyLocation}>
             Use My Location
