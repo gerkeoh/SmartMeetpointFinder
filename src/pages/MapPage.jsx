@@ -346,11 +346,6 @@ const MapPage = () => {
           </button>
         </div>
         <div className="text-container">
-        {meetupId && (
-          <p>
-            <strong>Meetup ID:</strong> {meetupId}
-          </p>
-        )}
 
         <p>{status}</p>
 
