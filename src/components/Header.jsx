@@ -5,13 +5,13 @@ function Header({ isLoggedIn, onLogout }) {
   return (
     <header className="header">
       <div className="header-logo">
-                <div className="logo-container">
-                    <Link to="/">
-                        <img src={logo} alt="Logo" className="logo" />
-                    </Link>
-                </div>
-                <h1 className="site-title">SMART MEETPOINT FINDER</h1>
-            </div>
+        <div className="logo-container">
+          <Link to="/">
+            <img src={logo} alt="Logo" className="logo" />
+          </Link>
+        </div>
+        <h1 className="site-title">SMART MEETPOINT FINDER</h1>
+      </div>
 
       <nav className="header-nav">
         {!isLoggedIn && (

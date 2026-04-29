@@ -265,3 +265,25 @@ nav {
   gap: 40px;
   padding: 20px;
 }
+
+@media (max-width: 600px) {
+  .header-logo {
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .site-title {
+    font-size: 22px;
+  }
+
+  .header-nav {
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-link {
+    width: 180px;
+  }
+}
