@@ -1,46 +1,42 @@
-import { Link } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import logo from "../assets/SMARTMEETPOINTFINDER_LOGO_NOBACK.png";
 
 function Header({ isLoggedIn, onLogout }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <header className="header">
       <div className="header-logo">
-        <div className="logo-container">
-          <Link to="/">
-            <img src={logo} alt="Logo" className="logo" />
-          </Link>
-        </div>
+        <Link to="/" onClick={closeMenu}>
+          <img src={logo} alt="Logo" className="logo" />
+        </Link>
+
         <h1 className="site-title">SMART MEETPOINT FINDER</h1>
+
+        <button
+          className="hamburger"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Toggle navigation menu"
+        >
+          ☰
+        </button>
       </div>
 
-      <nav className="header-nav">
-        {!isLoggedIn && (
+      <nav className={`header-nav ${menuOpen ? "open" : ""}`}>
+        <Link className="nav-link" to="/" onClick={closeMenu}>Home</Link>
+        {isLoggedIn ? (
           <>
-            <Link to="/" className="nav-link">HOME</Link>
-            <Link to="/register" className="nav-link">REGISTER</Link>
+            <Link className="nav-link" to="/friends" onClick={closeMenu}>Friends</Link>
+            <Link className="nav-link" to="/map" onClick={closeMenu}>Map</Link>
+            <Link className="nav-link" to="/profile" onClick={closeMenu}>Profile</Link>
+            <button className="nav-link" onClick={onLogout}>Logout</button>
           </>
-        )}
-
-        {isLoggedIn && (
+        ) : (
           <>
-            <Link to="/" className="nav-link">HOME</Link>
-            <Link to="/map" className="nav-link">MAP</Link>
-            <Link to="/friends" className="nav-link">FRIENDS</Link>
-            <Link to="/profile" className="nav-link">PROFILE</Link>
-            <span
-              id="logout-link"
-              className="nav-link"
-              onClick={onLogout}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  onLogout();
-                }
-              }}
-            >
-              LOGOUT
-            </span>
+            <Link className="nav-link" to="/login" onClick={closeMenu}>Login</Link>
+            <Link className="nav-link" to="/register" onClick={closeMenu}>Register</Link>
           </>
         )}
       </nav>
