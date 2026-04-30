@@ -122,27 +122,24 @@ function scoreCandidate(candidate, participants, averageSpeedKmh = 30) {
 function dynamicSearchRadiusKm(participants) {
   let maxDistance = 0;
 
-  // Compare every pair of users (true spread, not just from center)
-  for (let i = 0; i < participants.length; i++) {
-    for (let j = i + 1; j < participants.length; j++) {
-      const d = haversineKm(
+  for (let i = 0; i < participants.length; i += 1) {
+    for (let j = i + 1; j < participants.length; j += 1) {
+      const distance = haversineKm(
         participants[i].lat,
         participants[i].lng,
         participants[j].lat,
         participants[j].lng
       );
 
-      if (d > maxDistance) maxDistance = d;
+      if (distance > maxDistance) {
+        maxDistance = distance;
+      }
     }
   }
 
-  let radius = maxDistance / 5;
+  const radius = maxDistance / 5;
 
-  // Optional safety clamps (prevents weird extremes)
-  if (radius < 0.1) radius = 0.1;   // minimum ~100m
-  if (radius > 20) radius = 20;     // max cap (avoid huge circles)
-
-  return radius;
+  return Math.max(radius, 0.1);
 }
 
 /**
