@@ -119,22 +119,30 @@ function scoreCandidate(candidate, participants, averageSpeedKmh = 30) {
   };
 }
 
-/**
- * Pick a search radius based on how spread out users are.
- */
-function dynamicSearchRadiusKm(participants, seedCenter) {
-  const distances = participants.map((p) =>
-    haversineKm(p.lat, p.lng, seedCenter.lat, seedCenter.lng)
-  );
+function dynamicSearchRadiusKm(participants) {
+  let maxDistance = 0;
 
-  const maxDistance = Math.max(...distances);
+  // Compare every pair of users (true spread, not just from center)
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const d = haversineKm(
+        participants[i].lat,
+        participants[i].lng,
+        participants[j].lat,
+        participants[j].lng
+      );
 
-  if (maxDistance <= 0.5) return 0.15;   // same street/building area
-  if (maxDistance <= 2) return 0.3;      // same town/local area
-  if (maxDistance <= 10) return 0.75;    // nearby towns
-  if (maxDistance <= 30) return 1.5;     // city-to-city nearby
-  if (maxDistance <= 80) return 3;       // far apart
-  return 5;                              // very far apart
+      if (d > maxDistance) maxDistance = d;
+    }
+  }
+
+  let radius = maxDistance / 5;
+
+  // Optional safety clamps (prevents weird extremes)
+  if (radius < 0.1) radius = 0.1;   // minimum ~100m
+  if (radius > 20) radius = 20;     // max cap (avoid huge circles)
+
+  return radius;
 }
 
 /**
@@ -159,7 +167,7 @@ export function calculateBestMeetingPoint(participants, options = {}) {
   const averageSpeedKmh = options.averageSpeedKmh ?? 30;
 
   const seedCenter = centroid(participants);
-  const radiusKm = dynamicSearchRadiusKm(participants, seedCenter);
+  const radiusKm = dynamicSearchRadiusKm(participants);
   const candidates = generateCandidatePoints(seedCenter, radiusKm, 4, 12);
 
   let best = null;
