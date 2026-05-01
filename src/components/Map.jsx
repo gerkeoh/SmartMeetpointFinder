@@ -28,20 +28,19 @@ function createUserIcon(name, color) {
   });
 }
 
-function kmToLat(km) {
-  return km / 111;
-}
-
-function kmToLng(km, lat) {
-  return km / (111 * Math.cos((lat * Math.PI) / 180));
-}
-
-function distanceToBoundary(distanceKm, radiusKm) {
-  return Math.abs(distanceKm - radiusKm);
-}
-
 function formatDistance(km) {
   return `${km.toFixed(2)} km`;
+}
+
+function latLngDistanceKm(a, b) {
+  return L.latLng(a.lat, a.lng).distanceTo(L.latLng(b.lat, b.lng)) / 1000;
+}
+
+function midpoint(a, b) {
+  return {
+    lat: (a.lat + b.lat) / 2,
+    lng: (a.lng + b.lng) / 2,
+  };
 }
 
 export default function Map({ myLocation, friendLocations, meetingPoint }) {
@@ -103,9 +102,65 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
       bounds.push([person.lat, person.lng]);
     });
 
+    if (people.length >= 2) {
+      const [personA, personB] = people;
+      const totalDistanceKm = latLngDistanceKm(personA, personB);
+      const midpointLocation = midpoint(personA, personB);
+      const radiusKm = totalDistanceKm * 0.1;
+      const radiusMeters = radiusKm * 1000;
+
+      const participantLine = L.polyline(
+        [
+          [personA.lat, personA.lng],
+          [personB.lat, personB.lng],
+        ],
+        {
+          color: "#3b82f6",
+          weight: 4,
+          opacity: 0.8,
+        }
+      )
+        .addTo(mapRef.current)
+        .bindTooltip(`Distance: ${formatDistance(totalDistanceKm)}`, {
+          permanent: true,
+          direction: "center",
+          className: "line-tooltip",
+        });
+
+      layersRef.current.push(participantLine);
+
+      const midpointMarker = L.circleMarker([midpointLocation.lat, midpointLocation.lng], {
+        radius: 8,
+        color: "#f97316",
+        fillColor: "#f97316",
+        fillOpacity: 1,
+      })
+        .addTo(mapRef.current)
+        .bindTooltip("Midpoint", {
+          permanent: true,
+          direction: "top",
+          className: "line-tooltip",
+        });
+
+      layersRef.current.push(midpointMarker);
+      bounds.push([midpointLocation.lat, midpointLocation.lng]);
+
+      const midpointRadius = L.circle([midpointLocation.lat, midpointLocation.lng], {
+        radius: radiusMeters,
+        className: "midpoint-radius",
+      })
+        .addTo(mapRef.current)
+        .bindTooltip(`Radius: ${formatDistance(radiusKm)}`, {
+          permanent: true,
+          direction: "center",
+          className: "diameter-tooltip",
+        });
+
+      layersRef.current.push(midpointRadius);
+    }
+
     if (meetingPoint) {
       const radiusMeters = meetingPoint.radiusMeters || 300;
-      const radiusKm = radiusMeters / 1000;
 
       const meetingCircle = L.circle([meetingPoint.lat, meetingPoint.lng], {
         radius: radiusMeters,
@@ -116,66 +171,6 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
 
       layersRef.current.push(meetingCircle);
       bounds.push([meetingPoint.lat, meetingPoint.lng]);
-
-      const diameterPoints = [
-        [meetingPoint.lat, meetingPoint.lng - kmToLng(radiusKm, meetingPoint.lat)],
-        [meetingPoint.lat, meetingPoint.lng + kmToLng(radiusKm, meetingPoint.lat)],
-      ];
-
-      const diameterLine = L.polyline(diameterPoints, {
-        color: "#f97316",
-        weight: 3,
-        dashArray: "8 6",
-        opacity: 0.9,
-      })
-        .addTo(mapRef.current)
-        .bindTooltip(`Diameter: ${formatDistance(radiusKm * 2)}`, {
-          permanent: true,
-          direction: "center",
-          className: "diameter-tooltip",
-        });
-
-      layersRef.current.push(diameterLine);
-
-      const participants = people.map((person) => ({
-        ...person,
-        distanceKm: L.latLng(person.lat, person.lng).distanceTo(
-          L.latLng(meetingPoint.lat, meetingPoint.lng)
-        ) / 1000,
-      }));
-
-      participants.forEach((person, index) => {
-        const distanceKm = person.distanceKm;
-        const boundaryPoint =
-          distanceKm === 0
-            ? [meetingPoint.lat, meetingPoint.lng + kmToLng(radiusKm, meetingPoint.lat)]
-            : [
-                meetingPoint.lat +
-                  ((person.lat - meetingPoint.lat) * radiusKm) / distanceKm,
-                meetingPoint.lng +
-                  ((person.lng - meetingPoint.lng) * radiusKm) / distanceKm,
-              ];
-
-        const line = L.polyline([
-          [person.lat, person.lng],
-          boundaryPoint,
-        ], {
-          color: "#14b8a6",
-          weight: 2,
-          opacity: 0.8,
-        })
-          .addTo(mapRef.current)
-          .bindTooltip(
-            `${person.name}: ${formatDistance(distanceToBoundary(distanceKm, radiusKm))}`,
-            {
-              permanent: true,
-              direction: "center",
-              className: "line-tooltip",
-            }
-          );
-
-        layersRef.current.push(line);
-      });
     }
 
     if (bounds.length > 0) {
