@@ -137,11 +137,11 @@ function dynamicSearchRadiusKm(participants) {
     }
   }
 
-  // Use a radius that better reflects the spread of participants.
-  // For distant friends, this keeps the drawn meetup area large enough to be meaningful.
+  // Use a more representative radius for the candidate search / map display.
+  // When participants are far apart, the radius should scale up rather than stay tiny.
   const radius = maxDistance / 2;
 
-  return Math.max(radius, 0.5);
+  return Math.max(radius, 1);
 }
 
 /**
