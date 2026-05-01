@@ -137,9 +137,11 @@ function dynamicSearchRadiusKm(participants) {
     }
   }
 
-  const radius = maxDistance / 5;
+  // Use a radius that better reflects the spread of participants.
+  // For distant friends, this keeps the drawn meetup area large enough to be meaningful.
+  const radius = maxDistance / 2;
 
-  return Math.max(radius, 0.1);
+  return Math.max(radius, 0.5);
 }
 
 /**
