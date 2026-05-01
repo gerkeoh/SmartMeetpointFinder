@@ -137,11 +137,11 @@ function dynamicSearchRadiusKm(participants) {
     }
   }
 
-  // Use a more representative radius for the candidate search / map display.
-  // When participants are far apart, the radius should scale up rather than stay tiny.
-  const radius = maxDistance / 2;
+  // Use a higher fraction of the participant spread so the circle is more visible
+  // on wide-area meetups, while still growing in proportion to distance.
+  const radius = Math.max(maxDistance * 0.75, 5);
 
-  return Math.max(radius, 1);
+  return radius;
 }
 
 /**
