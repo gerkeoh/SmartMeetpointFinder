@@ -173,25 +173,24 @@ router.get("/coffee-shops", async (req, res) => {
       return res.status(400).json({ message: "Valid lat, lng, and radiusMeters are required." });
     }
 
-    const maxRadius = Math.max(radiusMeters * 5, 10000);
-    const radiusSteps = [radiusMeters, radiusMeters * 2, radiusMeters * 4, maxRadius];
+    const maxRadiusLimit = 50000;
+    let radius = radiusMeters;
 
-    const buildQuery = (radius) => `
+    const buildQuery = (radiusValue) => `
       [out:json][timeout:25];
       (
-        node["amenity"="cafe"](around:${radius},${lat},${lng});
-        node["shop"="coffee"](around:${radius},${lat},${lng});
-        way["amenity"="cafe"](around:${radius},${lat},${lng});
-        way["shop"="coffee"](around:${radius},${lat},${lng});
-        relation["amenity"="cafe"](around:${radius},${lat},${lng});
-        relation["shop"="coffee"](around:${radius},${lat},${lng});
+        node["amenity"="cafe"](around:${radiusValue},${lat},${lng});
+        node["shop"="coffee"](around:${radiusValue},${lat},${lng});
+        way["amenity"="cafe"](around:${radiusValue},${lat},${lng});
+        way["shop"="coffee"](around:${radiusValue},${lat},${lng});
+        relation["amenity"="cafe"](around:${radiusValue},${lat},${lng});
+        relation["shop"="coffee"](around:${radiusValue},${lat},${lng});
       );
       out center;
     `;
 
     let shops = [];
-
-    for (const radius of radiusSteps) {
+    while (radius <= maxRadiusLimit) {
       const response = await fetch("https://overpass-api.de/api/interpreter", {
         method: "POST",
         body: buildQuery(Math.round(radius)),
@@ -201,6 +200,7 @@ router.get("/coffee-shops", async (req, res) => {
       });
 
       if (!response.ok) {
+        radius = Math.min(radius * 2, maxRadiusLimit + 1);
         continue;
       }
 
@@ -224,6 +224,8 @@ router.get("/coffee-shops", async (req, res) => {
       if (shops.length > 0) {
         break;
       }
+
+      radius = Math.min(radius * 2, maxRadiusLimit + 1);
     }
 
     return res.status(200).json({ shops });

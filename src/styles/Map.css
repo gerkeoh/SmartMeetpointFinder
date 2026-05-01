@@ -164,45 +164,6 @@
     gap: 16px;
 }
 
-.coffee-shop-list {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(249, 115, 22, 0.25);
-  border-radius: 16px;
-  padding: 16px;
-}
-
-.coffee-shop-list h3 {
-  margin: 0 0 10px;
-  font-size: 18px;
-  color: #f97316;
-}
-
-.coffee-shop-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.coffee-shop-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.coffee-shop-list li strong {
-  font-size: 14px;
-}
-
-.coffee-shop-list li span {
-  color: #c7d2fe;
-  font-size: 13px;
-}
-
 .meetup-container label {
   font-size: 16px;
   color: #D9D9D9;

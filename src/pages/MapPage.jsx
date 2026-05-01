@@ -340,14 +340,6 @@ const MapPage = () => {
           >
             Refresh
           </button>
-
-          <button
-            className="submit"
-            onClick={calculateMeetup}
-            disabled={!meetupId || participantsWithLocation < 2}
-          >
-            Calculate
-          </button>
         </div>
         
         <p>{status}</p>

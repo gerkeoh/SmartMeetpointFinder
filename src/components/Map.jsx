@@ -101,64 +101,27 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
 
     const abortController = new AbortController();
 
-    const buildQuery = (radiusMeters) => `
-      [out:json][timeout:25];
-      (
-        node["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-        node["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-        way["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-        way["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-        relation["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-        relation["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-      );
-      out center;
-    `;
-
     async function loadCoffeeShops() {
       try {
-        const startRadius = meetingPoint.radiusMeters;
-        const maxRadius = Math.max(startRadius * 5, 10000);
-        const radiusSteps = [startRadius, startRadius * 2, startRadius * 4, maxRadius];
-        let shops = [];
-
-        for (const radiusMeters of radiusSteps) {
-          if (abortController.signal.aborted) return;
-
-          const response = await fetch(
+        const response = await fetch(
           apiUrl(
             `/api/coffee-shops?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${Math.round(
-              radiusMeters
+              meetingPoint.radiusMeters
             )}`
           ),
           {
             method: "GET",
             signal: abortController.signal,
-            headers: {
-              "Content-Type": "application/json",
-            },
           }
         );
 
-          if (!response.ok) {
-            continue;
-          }
-
-          const data = await response.json();
-          shops = (data.shops || [])
-            .map((element) => ({
-              id: element.id,
-              name: element.name,
-              type: element.type,
-              lat: element.lat,
-              lng: element.lng,
-            }))
-            .filter(Boolean);
-
-          if (shops.length > 0) {
-            break;
-          }
+        if (!response.ok) {
+          setCoffeeShops([]);
+          return;
         }
 
+        const data = await response.json();
+        const shops = (data.shops || []).filter(Boolean);
         setCoffeeShops(shops);
       } catch (error) {
         if (abortController.signal.aborted) return;
@@ -301,23 +264,6 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
   return (
     <div className="map-container">
       <div id="map" className="map"></div>
-      {meetingPoint && (
-        <div className="coffee-shop-list">
-          <h3>Coffee shops within radius</h3>
-          {coffeeShops.length > 0 ? (
-            <ul>
-              {coffeeShops.map((shop) => (
-                <li key={shop.id}>
-                  <strong>{shop.name}</strong>
-                  <span>{shop.type}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No coffee shops found inside the current meeting radius.</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
