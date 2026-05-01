@@ -100,52 +100,63 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
 
     const abortController = new AbortController();
 
+    const buildQuery = (radiusMeters) => `
+      [out:json][timeout:25];
+      (
+        node["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+        node["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+        way["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+        way["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+        relation["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+        relation["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+      );
+      out center;
+    `;
+
     async function loadCoffeeShops() {
       try {
-        const radiusMeters = meetingPoint.radiusMeters;
-        const query = `
-          [out:json][timeout:25];
-          (
-            node["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-            node["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-            way["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-            way["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-            relation["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-            relation["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
-          );
-          out center;
-        `;
+        const startRadius = meetingPoint.radiusMeters;
+        const maxRadius = Math.max(startRadius * 5, 10000);
+        const radiusSteps = [startRadius, startRadius * 2, startRadius * 4, maxRadius];
+        let shops = [];
 
-        const response = await fetch("https://overpass-api.de/api/interpreter", {
-          method: "POST",
-          body: query,
-          signal: abortController.signal,
-          headers: {
-            "Content-Type": "text/plain;charset=UTF-8",
-          },
-        });
+        for (const radiusMeters of radiusSteps) {
+          if (abortController.signal.aborted) return;
 
-        if (!response.ok) {
-          setCoffeeShops([]);
-          return;
+          const response = await fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: buildQuery(Math.round(radiusMeters)),
+            signal: abortController.signal,
+            headers: {
+              "Content-Type": "text/plain;charset=UTF-8",
+            },
+          });
+
+          if (!response.ok) {
+            continue;
+          }
+
+          const data = await response.json();
+          shops = (data.elements || [])
+            .map((element) => {
+              const lat = element.lat ?? element.center?.lat;
+              const lng = element.lon ?? element.center?.lon;
+              if (!lat || !lng) return null;
+
+              return {
+                id: `${element.type}-${element.id}`,
+                name: element.tags?.name || "Coffee Shop",
+                type: element.tags?.amenity || element.tags?.shop || "coffee",
+                lat,
+                lng,
+              };
+            })
+            .filter(Boolean);
+
+          if (shops.length > 0) {
+            break;
+          }
         }
-
-        const data = await response.json();
-        const shops = (data.elements || [])
-          .map((element) => {
-            const lat = element.lat ?? element.center?.lat;
-            const lng = element.lon ?? element.center?.lon;
-            if (!lat || !lng) return null;
-
-            return {
-              id: element.id,
-              name: element.tags?.name || "Coffee Shop",
-              type: element.tags?.amenity || element.tags?.shop || "coffee",
-              lat,
-              lng,
-            };
-          })
-          .filter(Boolean);
 
         setCoffeeShops(shops);
       } catch (error) {
