@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
+import { apiUrl } from "../api";
 
 const COLORS = [
   "#f97316",
@@ -123,34 +124,34 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
         for (const radiusMeters of radiusSteps) {
           if (abortController.signal.aborted) return;
 
-          const response = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            body: buildQuery(Math.round(radiusMeters)),
+          const response = await fetch(
+          apiUrl(
+            `/api/coffee-shops?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${Math.round(
+              radiusMeters
+            )}`
+          ),
+          {
+            method: "GET",
             signal: abortController.signal,
             headers: {
-              "Content-Type": "text/plain;charset=UTF-8",
+              "Content-Type": "application/json",
             },
-          });
+          }
+        );
 
           if (!response.ok) {
             continue;
           }
 
           const data = await response.json();
-          shops = (data.elements || [])
-            .map((element) => {
-              const lat = element.lat ?? element.center?.lat;
-              const lng = element.lon ?? element.center?.lon;
-              if (!lat || !lng) return null;
-
-              return {
-                id: `${element.type}-${element.id}`,
-                name: element.tags?.name || "Coffee Shop",
-                type: element.tags?.amenity || element.tags?.shop || "coffee",
-                lat,
-                lng,
-              };
-            })
+          shops = (data.shops || [])
+            .map((element) => ({
+              id: element.id,
+              name: element.name,
+              type: element.type,
+              lat: element.lat,
+              lng: element.lng,
+            }))
             .filter(Boolean);
 
           if (shops.length > 0) {

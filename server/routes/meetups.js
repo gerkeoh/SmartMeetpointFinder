@@ -158,6 +158,81 @@ router.get("/meetups/:meetupId", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/coffee-shops", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const radiusMeters = parseInt(req.query.radiusMeters, 10);
+
+    if (
+      Number.isNaN(lat) ||
+      Number.isNaN(lng) ||
+      Number.isNaN(radiusMeters) ||
+      radiusMeters <= 0
+    ) {
+      return res.status(400).json({ message: "Valid lat, lng, and radiusMeters are required." });
+    }
+
+    const maxRadius = Math.max(radiusMeters * 5, 10000);
+    const radiusSteps = [radiusMeters, radiusMeters * 2, radiusMeters * 4, maxRadius];
+
+    const buildQuery = (radius) => `
+      [out:json][timeout:25];
+      (
+        node["amenity"="cafe"](around:${radius},${lat},${lng});
+        node["shop"="coffee"](around:${radius},${lat},${lng});
+        way["amenity"="cafe"](around:${radius},${lat},${lng});
+        way["shop"="coffee"](around:${radius},${lat},${lng});
+        relation["amenity"="cafe"](around:${radius},${lat},${lng});
+        relation["shop"="coffee"](around:${radius},${lat},${lng});
+      );
+      out center;
+    `;
+
+    let shops = [];
+
+    for (const radius of radiusSteps) {
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: buildQuery(Math.round(radius)),
+        headers: {
+          "Content-Type": "text/plain;charset=UTF-8",
+        },
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+      shops = (data.elements || [])
+        .map((element) => {
+          const lat = element.lat ?? element.center?.lat;
+          const lng = element.lon ?? element.center?.lon;
+          if (!lat || !lng) return null;
+
+          return {
+            id: `${element.type}-${element.id}`,
+            name: element.tags?.name || "Coffee Shop",
+            type: element.tags?.amenity || element.tags?.shop || "coffee",
+            lat,
+            lng,
+          };
+        })
+        .filter(Boolean);
+
+      if (shops.length > 0) {
+        break;
+      }
+    }
+
+    return res.status(200).json({ shops });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Unable to load coffee shops." });
+  }
+});
+
 router.post("/meetups/:meetupId/location", requireAuth, async (req, res) => {
   try {
     const meetupId = new ObjectId(req.params.meetupId);
