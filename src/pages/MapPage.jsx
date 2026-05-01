@@ -13,6 +13,7 @@ const MapPage = () => {
   const [myLocation, setMyLocation] = useState(null);
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
+  const [coffeeRefreshKey, setCoffeeRefreshKey] = useState(0);
   const [status, setStatus] = useState("");
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState([]);
@@ -88,7 +89,7 @@ const MapPage = () => {
 
   const loadMeetup = async (id = meetupId) => {
     if (!token || !id) {
-      return;
+      return [];
     }
 
     try {
@@ -100,7 +101,7 @@ const MapPage = () => {
 
       if (!res.ok) {
         setStatus(data.message || "Failed to load meetup.");
-        return;
+        return [];
       }
 
       const meetupParticipants = data.participants || [];
@@ -130,8 +131,10 @@ const MapPage = () => {
       }
 
       setStatus("Meetup loaded.");
+      return meetupParticipants;
     } catch (error) {
       setStatus("Could not load meetup.");
+      return [];
     }
   };
 
@@ -238,8 +241,14 @@ const MapPage = () => {
         return;
       }
 
-      await loadMeetup(meetupId);
-      setStatus("Your meetup location has been saved.");
+      const meetupParticipants = await loadMeetup(meetupId);
+      const locationsCount = meetupParticipants.filter((p) => p.location).length;
+
+      if (locationsCount >= 2) {
+        await calculateMeetup();
+      } else {
+        setStatus("Your meetup location has been saved.");
+      }
     } catch (error) {
       console.error(error);
       setStatus("Something went wrong while saving your location.");
@@ -340,6 +349,14 @@ const MapPage = () => {
           >
             Refresh
           </button>
+
+          <button
+            className="submit"
+            onClick={() => setCoffeeRefreshKey((prev) => prev + 1)}
+            disabled={!meetingPoint}
+          >
+            Find Coffee Shops
+          </button>
         </div>
         
         <p>{status}</p>
@@ -407,6 +424,7 @@ const MapPage = () => {
         myLocation={myLocation}
         friendLocations={friendLocations}
         meetingPoint={meetingPoint}
+        refreshCoffeeKey={coffeeRefreshKey}
       />
     </div>
     </div>

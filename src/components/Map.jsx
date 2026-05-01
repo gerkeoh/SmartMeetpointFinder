@@ -71,7 +71,7 @@ function findFarthestParticipantPair(people) {
   return best;
 }
 
-export default function Map({ myLocation, friendLocations, meetingPoint }) {
+export default function Map({ myLocation, friendLocations, meetingPoint, refreshCoffeeKey }) {
   const mapRef = useRef(null);
   const layersRef = useRef([]);
   const [coffeeShops, setCoffeeShops] = useState([]);
@@ -132,7 +132,7 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
     loadCoffeeShops();
 
     return () => abortController.abort();
-  }, [meetingPoint]);
+  }, [meetingPoint, refreshCoffeeKey]);
 
   useEffect(() => {
     if (!mapRef.current) return;
