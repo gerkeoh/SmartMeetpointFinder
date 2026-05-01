@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 
 const COLORS = [
@@ -73,6 +73,7 @@ function findFarthestParticipantPair(people) {
 export default function Map({ myLocation, friendLocations, meetingPoint }) {
   const mapRef = useRef(null);
   const layersRef = useRef([]);
+  const [coffeeShops, setCoffeeShops] = useState([]);
 
   useEffect(() => {
     if (mapRef.current) return;
@@ -90,6 +91,73 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!meetingPoint?.lat || !meetingPoint?.lng || !meetingPoint?.radiusMeters) {
+      setCoffeeShops([]);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    async function loadCoffeeShops() {
+      try {
+        const radiusMeters = meetingPoint.radiusMeters;
+        const query = `
+          [out:json][timeout:25];
+          (
+            node["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+            node["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+            way["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+            way["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+            relation["amenity"="cafe"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+            relation["shop"="coffee"](around:${radiusMeters},${meetingPoint.lat},${meetingPoint.lng});
+          );
+          out center;
+        `;
+
+        const response = await fetch("https://overpass-api.de/api/interpreter", {
+          method: "POST",
+          body: query,
+          signal: abortController.signal,
+          headers: {
+            "Content-Type": "text/plain;charset=UTF-8",
+          },
+        });
+
+        if (!response.ok) {
+          setCoffeeShops([]);
+          return;
+        }
+
+        const data = await response.json();
+        const shops = (data.elements || [])
+          .map((element) => {
+            const lat = element.lat ?? element.center?.lat;
+            const lng = element.lon ?? element.center?.lon;
+            if (!lat || !lng) return null;
+
+            return {
+              id: element.id,
+              name: element.tags?.name || "Coffee Shop",
+              type: element.tags?.amenity || element.tags?.shop || "coffee",
+              lat,
+              lng,
+            };
+          })
+          .filter(Boolean);
+
+        setCoffeeShops(shops);
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        setCoffeeShops([]);
+      }
+    }
+
+    loadCoffeeShops();
+
+    return () => abortController.abort();
+  }, [meetingPoint]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -197,12 +265,47 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
 
       layersRef.current.push(meetingCircle);
       bounds.push([meetingPoint.lat, meetingPoint.lng]);
+
+      coffeeShops.forEach((shop) => {
+        const shopMarker = L.circleMarker([shop.lat, shop.lng], {
+          radius: 6,
+          color: "#8b5cf6",
+          fillColor: "#8b5cf6",
+          fillOpacity: 0.9,
+        })
+          .addTo(mapRef.current)
+          .bindPopup(`<strong>${shop.name}</strong><br/>${shop.type}`);
+
+        layersRef.current.push(shopMarker);
+        bounds.push([shop.lat, shop.lng]);
+      });
     }
 
     if (bounds.length > 0) {
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-  }, [myLocation, friendLocations, meetingPoint]);
+  }, [myLocation, friendLocations, meetingPoint, coffeeShops]);
 
-  return <div id="map" className="map"></div>;
+  return (
+    <div className="map-container">
+      <div id="map" className="map"></div>
+      {meetingPoint && (
+        <div className="coffee-shop-list">
+          <h3>Coffee shops within radius</h3>
+          {coffeeShops.length > 0 ? (
+            <ul>
+              {coffeeShops.map((shop) => (
+                <li key={shop.id}>
+                  <strong>{shop.name}</strong>
+                  <span>{shop.type}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No coffee shops found inside the current meeting radius.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

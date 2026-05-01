@@ -21,10 +21,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return EARTH_RADIUS_KM * c;
 }
 
-/**
- * Naive travel-time estimate for MVP.
- * Replace later with routing API matrix results.
- */
 function estimateTravelMinutes(from, to, averageSpeedKmh = 30) {
   const distanceKm = haversineKm(from.lat, from.lng, to.lat, to.lng);
   return (distanceKm / averageSpeedKmh) * 60;
