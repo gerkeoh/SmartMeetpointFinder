@@ -37,9 +37,27 @@ function latLngDistanceKm(a, b) {
 }
 
 function midpoint(a, b) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const lat1 = toRad(a.lat);
+  const lon1 = toRad(a.lng);
+  const lat2 = toRad(b.lat);
+  const lon2 = toRad(b.lng);
+  const dLon = lon2 - lon1;
+
+  const bx = Math.cos(lat2) * Math.cos(dLon);
+  const by = Math.cos(lat2) * Math.sin(dLon);
+
+  const lat3 = Math.atan2(
+    Math.sin(lat1) + Math.sin(lat2),
+    Math.sqrt((Math.cos(lat1) + bx) ** 2 + by ** 2)
+  );
+  const lon3 = lon1 + Math.atan2(by, Math.cos(lat1) + bx);
+
   return {
-    lat: (a.lat + b.lat) / 2,
-    lng: (a.lng + b.lng) / 2,
+    lat: toDeg(lat3),
+    lng: toDeg(lon3),
   };
 }
 
@@ -106,7 +124,7 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
       const [personA, personB] = people;
       const totalDistanceKm = latLngDistanceKm(personA, personB);
       const midpointLocation = midpoint(personA, personB);
-      const radiusKm = totalDistanceKm * 0.1;
+      const radiusKm = Math.min(totalDistanceKm * 0.1, 5);
       const radiusMeters = radiusKm * 1000;
 
       const participantLine = L.polyline(
