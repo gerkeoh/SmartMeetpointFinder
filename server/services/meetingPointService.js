@@ -31,26 +31,6 @@ function estimateTravelMinutes(from, to, averageSpeedKmh = 30) {
 }
 
 /**
- * Arithmetic centroid.
- * Good enough as a seed for local meetup searches.
- */
-function centroid(points) {
-  const total = points.reduce(
-    (acc, p) => {
-      acc.lat += p.lat;
-      acc.lng += p.lng;
-      return acc;
-    },
-    { lat: 0, lng: 0 }
-  );
-
-  return {
-    lat: total.lat / points.length,
-    lng: total.lng / points.length,
-  };
-}
-
-/**
  * Standard deviation helper.
  */
 function stdDev(values) {
@@ -61,87 +41,49 @@ function stdDev(values) {
   return Math.sqrt(variance);
 }
 
-/**
- * Generate candidate points around the seed center.
- * Radius in km.
- */
-function generateCandidatePoints(center, radiusKm = 3, rings = 3, perRing = 8) {
-  const candidates = [center];
-
-  const kmToLat = (km) => km / 111;
-  const kmToLng = (km, lat) => km / (111 * Math.cos((lat * Math.PI) / 180));
-
-  for (let ring = 1; ring <= rings; ring += 1) {
-    const ringRadius = (radiusKm / rings) * ring;
-
-    for (let i = 0; i < perRing; i += 1) {
-      const angle = (2 * Math.PI * i) / perRing;
-      const deltaLat = kmToLat(ringRadius * Math.cos(angle));
-      const deltaLng = kmToLng(ringRadius * Math.sin(angle), center.lat);
-
-      candidates.push({
-        lat: center.lat + deltaLat,
-        lng: center.lng + deltaLng,
-      });
-    }
-  }
-
-  return candidates;
-}
-
-/**
- * Score one candidate point.
- * Lower score is better.
- */
-function scoreCandidate(candidate, participants, averageSpeedKmh = 30) {
-  const travelMinutes = participants.map((p) =>
-    estimateTravelMinutes(
-      { lat: p.lat, lng: p.lng },
-      candidate,
-      averageSpeedKmh
-    )
-  );
-
-  const maxTime = Math.max(...travelMinutes);
-  const avgTime =
-    travelMinutes.reduce((sum, v) => sum + v, 0) / travelMinutes.length;
-  const spreadPenalty = stdDev(travelMinutes);
-
-  // Weighted fairness formula
-  const score = maxTime * 0.6 + avgTime * 0.3 + spreadPenalty * 0.1;
-
-  return {
-    score,
-    travelMinutes,
-    maxTime,
-    avgTime,
-    spreadPenalty,
+function findFarthestParticipantPair(participants) {
+  let best = {
+    a: participants[0],
+    b: participants[1],
+    distanceKm: haversineKm(
+      participants[0].lat,
+      participants[0].lng,
+      participants[1].lat,
+      participants[1].lng
+    ),
   };
-}
-
-function dynamicSearchRadiusKm(participants) {
-  let maxDistance = 0;
 
   for (let i = 0; i < participants.length; i += 1) {
     for (let j = i + 1; j < participants.length; j += 1) {
-      const distance = haversineKm(
+      const distanceKm = haversineKm(
         participants[i].lat,
         participants[i].lng,
         participants[j].lat,
         participants[j].lng
       );
 
-      if (distance > maxDistance) {
-        maxDistance = distance;
+      if (distanceKm > best.distanceKm) {
+        best = {
+          a: participants[i],
+          b: participants[j],
+          distanceKm,
+        };
       }
     }
   }
 
-  // Use a higher fraction of the participant spread so the circle is more visible
-  // on wide-area meetups, while still growing in proportion to distance.
-  const radius = Math.max(maxDistance * 0.75, 5);
+  return best;
+}
 
-  return radius;
+function midpoint(a, b) {
+  return {
+    lat: (a.lat + b.lat) / 2,
+    lng: (a.lng + b.lng) / 2,
+  };
+}
+
+function calculateRadiusKm(distanceKm) {
+  return Math.min(distanceKm * 0.1, 5);
 }
 
 /**
@@ -164,43 +106,43 @@ export function calculateBestMeetingPoint(participants, options = {}) {
   }
 
   const averageSpeedKmh = options.averageSpeedKmh ?? 30;
-
-  const seedCenter = centroid(participants);
-  const radiusKm = dynamicSearchRadiusKm(participants);
-  const candidates = generateCandidatePoints(seedCenter, radiusKm, 4, 12);
-
-  let best = null;
-
-  for (const candidate of candidates) {
-    const metrics = scoreCandidate(candidate, participants, averageSpeedKmh);
-
-    if (!best || metrics.score < best.score) {
-      best = {
-        point: candidate,
-        ...metrics,
-      };
-    }
-  }
+  const farthestPair = findFarthestParticipantPair(participants);
+  const meetingPointLocation = midpoint(farthestPair.a, farthestPair.b);
+  const radiusKm = calculateRadiusKm(farthestPair.distanceKm);
+  const travelMinutes = participants.map((p) =>
+    estimateTravelMinutes(
+      { lat: p.lat, lng: p.lng },
+      meetingPointLocation,
+      averageSpeedKmh
+    )
+  );
+  const maxTime = Math.max(...travelMinutes);
+  const avgTime = travelMinutes.reduce((sum, v) => sum + v, 0) / travelMinutes.length;
+  const spreadPenalty = stdDev(travelMinutes);
+  const score = maxTime * 0.6 + avgTime * 0.3 + spreadPenalty * 0.1;
 
   return {
     meetingPoint: {
-      ...best.point,
+      ...meetingPointLocation,
       radiusKm: Number(radiusKm.toFixed(2)),
       radiusMeters: Math.round(radiusKm * 1000),
     },
     metrics: {
-      score: Number(best.score.toFixed(2)),
-      maxTravelMinutes: Number(best.maxTime.toFixed(1)),
-      avgTravelMinutes: Number(best.avgTime.toFixed(1)),
-      fairnessSpread: Number(best.spreadPenalty.toFixed(1)),
-      participantTravelMinutes: best.travelMinutes.map((t) =>
-        Number(t.toFixed(1))
-      ),
+      score: Number(score.toFixed(2)),
+      maxTravelMinutes: Number(maxTime.toFixed(1)),
+      avgTravelMinutes: Number(avgTime.toFixed(1)),
+      fairnessSpread: Number(spreadPenalty.toFixed(1)),
+      participantTravelMinutes: travelMinutes.map((t) => Number(t.toFixed(1))),
+      lineDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
     },
     debug: {
-      seedCenter,
+      farthestPair: {
+        a: farthestPair.a.userId,
+        b: farthestPair.b.userId,
+      },
+      center: meetingPointLocation,
+      totalDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
       radiusKm: Number(radiusKm.toFixed(2)),
-      candidatesChecked: candidates.length,
     },
   };
 }
