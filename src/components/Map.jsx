@@ -43,6 +43,23 @@ function midpoint(a, b) {
   };
 }
 
+function findFarthestParticipantPair(people) {
+  let best = { a: people[0], b: people[1], distanceKm: 0 };
+
+  for (let i = 0; i < people.length; i += 1) {
+    for (let j = i + 1; j < people.length; j += 1) {
+      const p1 = people[i];
+      const p2 = people[j];
+      const distanceKm = latLngDistanceKm(p1, p2);
+      if (distanceKm > best.distanceKm) {
+        best = { a: p1, b: p2, distanceKm };
+      }
+    }
+  }
+
+  return best;
+}
+
 export default function Map({ myLocation, friendLocations, meetingPoint }) {
   const mapRef = useRef(null);
   const layersRef = useRef([]);
@@ -103,8 +120,7 @@ export default function Map({ myLocation, friendLocations, meetingPoint }) {
     });
 
     if (people.length >= 2) {
-      const [personA, personB] = people;
-      const totalDistanceKm = latLngDistanceKm(personA, personB);
+      const { a: personA, b: personB, distanceKm: totalDistanceKm } = findFarthestParticipantPair(people);
       const midpointLocation = midpoint(personA, personB);
       const radiusKm = Math.min(totalDistanceKm * 0.1, 5);
       const radiusMeters = radiusKm * 1000;
