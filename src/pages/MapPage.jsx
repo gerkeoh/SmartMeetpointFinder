@@ -25,18 +25,23 @@ function LocationUpdater({ position }) {
 
 const MapPage = () => {
   const [position, setPosition] = useState(null);
-  const [status, setStatus] = useState("Locating you...");
+  const [status, setStatus] = useState("Click the button below to allow location access.");
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const requestLocation = () => {
     if (!navigator.geolocation) {
       setStatus("Geolocation is not supported by your browser.");
       return;
     }
 
+    setLoading(true);
+    setStatus("Requesting location access...");
+
     const success = (pos) => {
       const { latitude, longitude } = pos.coords;
       setPosition([latitude, longitude]);
       setStatus("You are here.");
+      setLoading(false);
     };
 
     const error = (err) => {
@@ -45,6 +50,7 @@ const MapPage = () => {
       } else {
         setStatus("Unable to retrieve your location.");
       }
+      setLoading(false);
     };
 
     navigator.geolocation.getCurrentPosition(success, error, {
@@ -52,13 +58,27 @@ const MapPage = () => {
       timeout: 15000,
       maximumAge: 0,
     });
-  }, []);
+  };
 
   return (
     <div className="map-page-container">
       <div className="map-page-header">
         <h2>Your Location Map</h2>
         <p>{status}</p>
+      </div>
+
+      <div className="location-request-card">
+        <div>
+          <h3>Allow Location Access</h3>
+          <p>Press the button below so the app can show your current location on the map.</p>
+        </div>
+        <button
+          className="location-button"
+          onClick={requestLocation}
+          disabled={loading || Boolean(position)}
+        >
+          {position ? "Location enabled" : loading ? "Allowing location..." : "Allow access"}
+        </button>
       </div>
 
       <div className="map-wrapper">

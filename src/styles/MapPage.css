@@ -19,6 +19,50 @@
   font-size: 1rem;
 }
 
+.location-request-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.location-request-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.location-request-card p {
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.location-button {
+  padding: 0.9rem 1.6rem;
+  border: none;
+  border-radius: 9999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.location-button:hover {
+  background: #1d4ed8;
+}
+
+.location-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
 .map-wrapper {
   width: 100%;
   min-height: 68vh;
