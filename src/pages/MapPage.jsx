@@ -67,7 +67,7 @@ const MapPage = () => {
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
   const [coffeeShops, setCoffeeShops] = useState([]);
-  const [status, setStatus] = useState("Use your location, choose friends, then create a meetup.");
+  const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -387,7 +387,7 @@ const MapPage = () => {
         <div className="meetup-card-header">
           <div>
             <h3>Create Meetup</h3>
-            <p>Load your location, invite friends, and save a meetup everyone can share into.</p>
+            <p>Use your location, choose friends, then create a meetup.</p>
           </div>
           <span className="meetup-count">
             {selectedFriendIds.length} friend{selectedFriendIds.length === 1 ? "" : "s"} selected
@@ -395,17 +395,6 @@ const MapPage = () => {
         </div>
 
         <div className="meetup-form-grid">
-          <label className="meetup-title-field" htmlFor="meetup-title">
-            Meetup title
-            <input
-              id="meetup-title"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Coffee, study session, match day..."
-            />
-          </label>
-
           <label className="meetup-title-field meetup-id-field" htmlFor="meetup-id">
             Meetup ID
             <span className="meetup-id-control">
