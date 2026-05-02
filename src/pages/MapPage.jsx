@@ -30,7 +30,7 @@ const MapPage = () => {
   const [status, setStatus] = useState("Click the button below to allow location access.");
   const [loading, setLoading] = useState(false);
   const [friends, setFriends] = useState([]);
-  const [selectedFriendIds, setSelectedFriendIds] = useState([]);
+  const [selectedFriendId, setSelectedFriendId] = useState("");
   const [meetupTitle, setMeetupTitle] = useState("");
   const [meetupMessage, setMeetupMessage] = useState("");
   const [savingMeetup, setSavingMeetup] = useState(false);
@@ -63,7 +63,7 @@ const MapPage = () => {
   }, [token]);
 
   useEffect(() => {
-    setSelectedFriendIds((ids) => ids.filter((id) => friends.some((friend) => friend.id === id)));
+    setSelectedFriendId((id) => (friends.some((friend) => friend.id === id) ? id : ""));
   }, [friends]);
 
   const requestLocation = () => {
@@ -100,11 +100,7 @@ const MapPage = () => {
 
   const toggleMeetupFriend = (friendId) => {
     setMeetupMessage("");
-    setSelectedFriendIds((ids) =>
-      ids.includes(friendId)
-        ? ids.filter((id) => id !== friendId)
-        : [...ids, friendId]
-    );
+    setSelectedFriendId((id) => (id === friendId ? "" : friendId));
   };
 
   const saveMeetup = async () => {
@@ -115,8 +111,8 @@ const MapPage = () => {
       return;
     }
 
-    if (selectedFriendIds.length === 0) {
-      setMeetupMessage("Choose at least one friend for the meetup.");
+    if (!selectedFriendId) {
+      setMeetupMessage("Choose one friend for the meetup.");
       return;
     }
 
@@ -127,7 +123,10 @@ const MapPage = () => {
       headers: authHeaders,
       body: JSON.stringify({
         title: meetupTitle,
-        friendIds: selectedFriendIds,
+        friendId: selectedFriendId,
+        friendIds: [selectedFriendId],
+        invitedFriendId: selectedFriendId,
+        invitedFriendIds: [selectedFriendId],
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -141,7 +140,7 @@ const MapPage = () => {
 
     setMeetupMessage(`Meetup saved. ID: ${data.meetupSaveId || data.meetupId}`);
     setMeetupTitle("");
-    setSelectedFriendIds([]);
+    setSelectedFriendId("");
   };
 
   return (
@@ -171,7 +170,7 @@ const MapPage = () => {
             <h3>Create Meetup</h3>
             <p>Choose the friend you want to add to this meetup.</p>
           </div>
-          <span className="meetup-count">{selectedFriendIds.length} selected</span>
+          <span className="meetup-count">{selectedFriendId ? "1 selected" : "0 selected"}</span>
         </div>
 
         <label className="meetup-title-field" htmlFor="meetup-title">
@@ -190,7 +189,7 @@ const MapPage = () => {
             <p className="friend-picker-empty">No friends yet. Add friends first, then come back to create a meetup.</p>
           ) : (
             friends.map((friend) => {
-              const isSelected = selectedFriendIds.includes(friend.id);
+              const isSelected = selectedFriendId === friend.id;
               return (
                 <button
                   key={friend.id}
@@ -214,15 +213,15 @@ const MapPage = () => {
             type="button"
             className="save-meetup-button"
             onClick={saveMeetup}
-            disabled={savingMeetup || selectedFriendIds.length === 0}
+            disabled={savingMeetup || !selectedFriendId}
           >
             {savingMeetup ? "Saving..." : "Save meetup"}
           </button>
           <button
             type="button"
             className="clear-meetup-button"
-            onClick={() => setSelectedFriendIds([])}
-            disabled={selectedFriendIds.length === 0}
+            onClick={() => setSelectedFriendId("")}
+            disabled={!selectedFriendId}
           >
             Clear
           </button>

@@ -44,17 +44,23 @@ router.get("/meetups", requireAuth, async (req, res) => {
 router.post("/meetups", requireAuth, async (req, res) => {
   try {
     const userId = new ObjectId(req.user.id);
-    const { title, friendIds } = req.body || {};
+    const { title, friendId, friendIds, invitedFriendId, invitedFriendIds } = req.body || {};
+    const requestedFriendIds = [
+      ...(Array.isArray(friendIds) ? friendIds : []),
+      ...(Array.isArray(invitedFriendIds) ? invitedFriendIds : []),
+      friendId,
+      invitedFriendId,
+    ].filter(Boolean);
 
-    if (!Array.isArray(friendIds) || friendIds.length === 0) {
-      return res.status(400).json({ message: "At least one friendId is required." });
+    if (requestedFriendIds.length === 0) {
+      return res.status(400).json({ message: "One friend is required." });
     }
 
-    const uniqueFriendIds = [...new Set(friendIds.filter((id) => typeof id === "string"))];
+    const uniqueFriendIds = [...new Set(requestedFriendIds.filter((id) => typeof id === "string"))];
     const hasInvalidFriendId = uniqueFriendIds.some((id) => !ObjectId.isValid(id));
 
-    if (uniqueFriendIds.length === 0) {
-      return res.status(400).json({ message: "At least one valid friendId is required." });
+    if (uniqueFriendIds.length !== 1) {
+      return res.status(400).json({ message: "Choose exactly one friend for this meetup." });
     }
 
     if (hasInvalidFriendId) {
