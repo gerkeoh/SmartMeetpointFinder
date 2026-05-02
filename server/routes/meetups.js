@@ -6,6 +6,7 @@ import { calculateBestMeetingPoint } from "../services/meetingPointService.js";
 
 const router = express.Router();
 
+
 const MEETUPS = "meetups";
 const PARTICIPANTS = "participants";
 const CONNECTIONS = "connections";
