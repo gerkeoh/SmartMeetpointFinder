@@ -383,11 +383,6 @@ const MapPage = () => {
 
   return (
     <div className="map-page-container">
-      <div className="map-page-header">
-        <h2>Map Meetup</h2>
-        <p>{status}</p>
-      </div>
-
       <div className="meetup-card">
         <div className="meetup-card-header">
           <div>
@@ -411,15 +406,20 @@ const MapPage = () => {
             />
           </label>
 
-          <label className="meetup-title-field" htmlFor="meetup-id">
+          <label className="meetup-title-field meetup-id-field" htmlFor="meetup-id">
             Meetup ID
-            <input
-              id="meetup-id"
-              type="text"
-              value={meetupIdInput}
-              onChange={(e) => setMeetupIdInput(e.target.value)}
-              placeholder="Paste meetup ID to open"
-            />
+            <span className="meetup-id-control">
+              <input
+                id="meetup-id"
+                type="text"
+                value={meetupIdInput}
+                onChange={(e) => setMeetupIdInput(e.target.value)}
+                placeholder="Paste meetup ID to open"
+              />
+              <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupIdInput)}>
+                Open Meetup
+              </button>
+            </span>
           </label>
         </div>
 
@@ -432,9 +432,6 @@ const MapPage = () => {
           </button>
           <button type="button" className="save-meetup-button" onClick={shareMyLocationToMeetup}>
             Share Location
-          </button>
-          <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupIdInput)}>
-            Open Meetup
           </button>
           <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupId)} disabled={!meetupId}>
             Refresh
@@ -498,6 +495,8 @@ const MapPage = () => {
             )}
           </div>
         </div>
+
+        <p className="meetup-status-message">{status}</p>
       </div>
 
       <div className="map-wrapper">
