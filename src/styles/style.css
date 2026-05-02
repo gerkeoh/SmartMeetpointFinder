@@ -83,13 +83,13 @@ nav {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: clamp(104px, 11vw, 150px);
-  min-height: 48px;
+  width: 150px;
+  min-height: 59px;
   padding: 0.55rem 0.85rem;
   color: #D9D9D9;
   background: #222;
   border-radius: 50px;
-  font-size: clamp(14px, 1.6vw, 19px);
+  font-size: 19px;
   font-weight: 700;
   cursor: pointer;
   border: 2px solid #f97316;
@@ -123,6 +123,188 @@ nav {
   padding: 20px;
   flex: 1;
   min-width: 300px;
+}
+
+.app-page {
+  width: min(100% - 2rem, 1100px);
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.app-card {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 1.4rem 1.6rem;
+  background: #222;
+  border: 1px solid #f97316;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.app-card-wide {
+  width: min(100%, 980px);
+}
+
+.app-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.app-section-header h1 {
+  margin: 0 0 0.4rem;
+  color: #D9D9D9;
+  font-size: 1.7rem;
+  line-height: 1.2;
+}
+
+.app-section-header p,
+.app-card p {
+  margin: 0;
+  color: #d9d9d9;
+  line-height: 1.6;
+}
+
+.app-section {
+  margin-top: 1.4rem;
+}
+
+.app-section h3 {
+  margin: 0 0 0.75rem;
+  color: #D9D9D9;
+  font-size: 1.2rem;
+}
+
+.app-form {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.app-search-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.app-form input,
+.app-form textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.app-form textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.app-form input:focus,
+.app-form textarea:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.app-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.app-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.app-list-content {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.app-list-content strong,
+.app-list-content span {
+  overflow-wrap: anywhere;
+}
+
+.app-list-content span {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
+.app-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.75rem 1.15rem;
+  border: none;
+  border-radius: 9999px;
+  color: #f8fafc;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+}
+
+.app-button-primary {
+  background: #2563eb;
+}
+
+.app-button-primary:hover {
+  background: #1d4ed8;
+}
+
+.app-button-muted {
+  background: #475569;
+}
+
+.app-button-muted:hover {
+  background: #334155;
+}
+
+.app-message {
+  margin-top: 1rem !important;
+  padding-top: 1rem;
+  border-top: 1px solid #334155;
+  color: #d9d9d9;
+  font-weight: 700;
+}
+
+.profile-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-summary div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.profile-summary span {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.profile-summary strong {
+  overflow-wrap: anywhere;
 }
 
 .map {
@@ -313,14 +495,20 @@ nav {
   }
 
   .nav-link {
-    width: auto;
+    width: clamp(110px, 18vw, 150px);
     min-width: 110px;
+    min-height: 52px;
+    font-size: clamp(15px, 2vw, 19px);
   }
 
   .footer {
     justify-content: center;
     border-top-left-radius: 32px;
     border-top-right-radius: 32px;
+  }
+
+  .profile-summary {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -367,6 +555,33 @@ nav {
     border-top-left-radius: 24px;
     border-top-right-radius: 24px;
     line-height: 1.4;
+  }
+
+  .app-page {
+    width: min(100% - 1rem, 1100px);
+    padding: 1rem 0;
+  }
+
+  .app-card {
+    padding: 1rem;
+  }
+
+  .app-section-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .app-list-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-button {
+    width: 100%;
   }
 }
 

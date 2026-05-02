@@ -85,20 +85,34 @@ const Profile = () => {
     }
   };
 
-  if (loading) return <div className="page"><p>Loading...</p></div>;
+  if (loading) return <div className="app-page"><p className="app-message">Loading...</p></div>;
 
   return (
-    <div className="page">
-      <section className="section_1">
-        <h1>Profile</h1>
-
-        <div>
-          <p><strong>Username:</strong> {username}</p>
-          <p><strong>Email:</strong> {email}</p>
-          <p><strong>Friends:</strong> {friendCount}</p>
+    <div className="app-page">
+      <section className="app-card">
+        <div className="app-section-header">
+          <div>
+            <h1>Profile</h1>
+            <p>Update your public details and view your account summary.</p>
+          </div>
         </div>
 
-        <form onSubmit={onSave}>
+        <div className="profile-summary">
+          <div>
+            <span>Username</span>
+            <strong>{username}</strong>
+          </div>
+          <div>
+            <span>Email</span>
+            <strong>{email}</strong>
+          </div>
+          <div>
+            <span>Friends</span>
+            <strong>{friendCount}</strong>
+          </div>
+        </div>
+
+        <form className="app-form" onSubmit={onSave}>
           <input
             type="text"
             placeholder="Display name (optional)"
@@ -113,12 +127,12 @@ const Profile = () => {
             rows={4}
           />
 
-          <button type="submit">
+          <button className="app-button app-button-primary" type="submit">
             Save Profile
           </button>
         </form>
 
-        {msg && <p>{msg}</p>}
+        {msg && <p className="app-message">{msg}</p>}
       </section>
     </div>
   );
