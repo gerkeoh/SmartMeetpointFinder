@@ -1,15 +1,11 @@
 .login-container {
     display: flex;
     flex-direction: column;
-    margin: auto;
-    margin-top: 50px;
-    margin-bottom: 100px;
-    width: 500px;
+    width: min(100%, 500px);
     background: #222;
-    padding-bottom: 30px;
+    padding: 1.25rem 1rem 1.6rem;
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    transform: translateX(-15%);
 }
 
 .login-container .header {
@@ -18,19 +14,21 @@
     align-items: center;
     gap: 9px;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 0;
 }
 
 .login-container .text {
     color: #D9D9D9;
-    font-size: 40px;
+    font-size: clamp(2rem, 5vw, 40px);
     font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
 }
 
 .login-container .underline {
     width: 50px;
     height: 6px;
-    background: #222;
+    background: #f97316;
     border-radius: 9px;
 }
 
@@ -61,7 +59,7 @@
 }
 
 .login-container .inputs {
-    margin-top: 10px;
+    margin-top: 1rem;
     display: flex;
     flex-direction: column;
     gap: 15px;
@@ -70,26 +68,30 @@
 .login-container .input {
     display: flex;
     align-items: center;
-    margin: auto;
-    width: 350px;
-    height: 40px;
+    width: min(100%, 370px);
+    min-height: 48px;
+    margin: 0 auto;
     background: #D9D9D9;
     border-radius: 6px;
-    padding-left: 15px;
+    padding: 0 0.8rem;
 }
 
 .login-container .input img {
-    margin-right: 15px;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin-right: 0.75rem;
 }
 
 .login-container .input input {
     width: 100%;
-    height: 50px;
+    min-width: 0;
+    min-height: 48px;
     background: transparent;
     border: none;
     outline: none;
     color: #797979;
-    font-size: 19px;
+    font-size: clamp(16px, 2vw, 19px);
 }
 
 .login-container .forgot-password {
@@ -106,22 +108,27 @@
 
 .login-container .submit-container {
     display: flex;
-    gap: 50px;
-    margin: 30px auto;
-    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    width: min(100%, 370px);
+    margin: 1.3rem auto 0;
+    justify-content: center;
     align-items: center;
+    text-align: center;
 }
 
 .login-container .submit {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 150px;
-    height: 59px;
+    min-width: 150px;
+    min-height: 52px;
+    padding: 0.75rem 1.1rem;
     color: #D9D9D9;
     background: #222;
     border-radius: 50px;
-    font-size: 19px;
+    font: inherit;
+    font-size: clamp(16px, 2vw, 19px);
     font-weight: 700;
     cursor: pointer;
     border: 2px solid #f97316;
@@ -151,25 +158,77 @@
 }
 
 .text-container {
-    flex: 1;
+    flex: 1 1 360px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    padding-left: 50px;
+    min-width: 0;
 }
 
 .text-container span{
     color:#222;
-    font-size: 65px;
+    font-size: clamp(2.4rem, 6vw, 65px);
     font-weight: bold;
     text-align: left;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
 }
 
 .whole-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 100px;
-    min-height: 100vh;
-    padding: 20px;
+    gap: clamp(2rem, 8vw, 100px);
+    width: min(100% - 2rem, 1180px);
+    min-height: calc(100vh - 180px);
+    margin: 0 auto;
+    padding: 2rem 0;
+}
+
+@media (max-width: 900px) {
+    .whole-container {
+        flex-direction: column;
+        gap: 1.5rem;
+        min-height: auto;
+        padding: 1.5rem 0 2rem;
+    }
+
+    .text-container {
+        flex: 0 1 auto;
+        justify-content: center;
+        width: min(100%, 640px);
+    }
+
+    .text-container span {
+        text-align: center;
+    }
+
+    .login-container {
+        width: min(100%, 520px);
+    }
+}
+
+@media (max-width: 520px) {
+    .whole-container {
+        width: min(100% - 1rem, 1180px);
+        padding: 1rem 0 1.5rem;
+    }
+
+    .text-container span {
+        font-size: clamp(2rem, 11vw, 2.6rem);
+    }
+
+    .login-container {
+        padding: 1rem 0.8rem 1.25rem;
+    }
+
+    .login-container .input,
+    .login-container .submit-container {
+        width: 100%;
+    }
+
+    .login-container .submit {
+        width: 100%;
+        min-width: 0;
+    }
 }

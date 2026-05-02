@@ -1,10 +1,9 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { apiUrl } from "../api";
 import "../styles/Login.css";
 
 import user_icon from "../assets/person.png";
-import email_icon from "../assets/email.png";
 import password_icon from "../assets/password.png";
 
 const Login = ({ onLogin }) => {
