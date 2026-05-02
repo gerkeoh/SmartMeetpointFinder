@@ -1,10 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Circle,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import L from "leaflet";
 import { apiUrl } from "../api";
 import "../styles/MapPage.css";
 
-const userIcon = new L.Icon({
+const defaultCenter = [53.3498, -6.2603];
+
+const markerIcon = new L.Icon({
   iconUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png",
   shadowUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png",
@@ -14,239 +25,544 @@ const userIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-function LocationUpdater({ position }) {
+const meetingIcon = L.divIcon({
+  className: "custom-pin",
+  html: '<div class="pin meeting-pin"><span class="pin-text">Meet</span></div>',
+  iconSize: [58, 58],
+  iconAnchor: [29, 58],
+});
+
+const coffeeIcon = L.divIcon({
+  className: "custom-pin",
+  html: '<div class="pin coffee-pin"><span class="pin-text">Cafe</span></div>',
+  iconSize: [48, 48],
+  iconAnchor: [24, 48],
+});
+
+function MapBounds({ points }) {
   const map = useMap();
+
   useEffect(() => {
-    if (position) {
-      map.setView(position, 15);
+    const validPoints = points.filter(Boolean);
+    if (validPoints.length === 0) return;
+
+    if (validPoints.length === 1) {
+      map.setView(validPoints[0], 15);
+      return;
     }
-  }, [map, position]);
+
+    map.fitBounds(validPoints, { padding: [40, 40], maxZoom: 15 });
+  }, [map, points]);
+
   return null;
 }
 
 const MapPage = () => {
   const token = localStorage.getItem("token");
-  const [position, setPosition] = useState(null);
-  const [status, setStatus] = useState("Click the button below to allow location access.");
-  const [loading, setLoading] = useState(false);
   const [friends, setFriends] = useState([]);
-  const [selectedFriendId, setSelectedFriendId] = useState("");
-  const [meetupTitle, setMeetupTitle] = useState("");
-  const [meetupMessage, setMeetupMessage] = useState("");
+  const [selectedFriendIds, setSelectedFriendIds] = useState([]);
+  const [meetupId, setMeetupId] = useState("");
+  const [meetupIdInput, setMeetupIdInput] = useState("");
+  const [myLocation, setMyLocation] = useState(null);
+  const [friendLocations, setFriendLocations] = useState([]);
+  const [meetingPoint, setMeetingPoint] = useState(null);
+  const [coffeeShops, setCoffeeShops] = useState([]);
+  const [status, setStatus] = useState("Use your location, choose friends, then create a meetup.");
+  const [title, setTitle] = useState("");
+  const [participants, setParticipants] = useState([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [savingMeetup, setSavingMeetup] = useState(false);
+  const [loadingCoffee, setLoadingCoffee] = useState(false);
 
-  const authHeaders = token
-    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
-    : { "Content-Type": "application/json" };
+  const authHeaders = useMemo(
+    () =>
+      token
+        ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+        : { "Content-Type": "application/json" },
+    [token]
+  );
 
   useEffect(() => {
     const loadFriends = async () => {
-      setMeetupMessage("");
       if (!token) {
         setFriends([]);
         return;
       }
 
-      const res = await fetch(apiUrl("/api/friends"), { headers: authHeaders });
-      const data = await res.json().catch(() => ({}));
+      try {
+        const res = await fetch(apiUrl("/api/friends"), { headers: authHeaders });
+        const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        setMeetupMessage(data?.message || "Failed to load friends.");
-        return;
+        if (!res.ok) {
+          setStatus(data.message || "Failed to load friends.");
+          return;
+        }
+
+        setFriends(data.friends || []);
+      } catch (error) {
+        setStatus("Could not load friends.");
       }
-
-      setFriends(data.friends || []);
     };
 
     loadFriends();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, authHeaders]);
 
   useEffect(() => {
-    setSelectedFriendId((id) => (friends.some((friend) => friend.id === id) ? id : ""));
+    setSelectedFriendIds((ids) => ids.filter((id) => friends.some((friend) => friend.id === id)));
   }, [friends]);
 
-  const requestLocation = () => {
+  const mapPoints = useMemo(
+    () => [
+      myLocation ? [myLocation.lat, myLocation.lng] : null,
+      ...friendLocations.map((friend) => [friend.lat, friend.lng]),
+      meetingPoint ? [meetingPoint.lat, meetingPoint.lng] : null,
+      ...coffeeShops.map((shop) => [shop.lat, shop.lng]),
+    ],
+    [myLocation, friendLocations, meetingPoint, coffeeShops]
+  );
+
+  const toggleFriend = (friendId) => {
+    setSelectedFriendIds((prev) =>
+      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
+    );
+  };
+
+  const getMyLocation = () => {
     if (!navigator.geolocation) {
       setStatus("Geolocation is not supported by your browser.");
       return;
     }
 
-    setLoading(true);
-    setStatus("Requesting location access...");
+    setLoadingLocation(true);
+    setStatus("Getting your location...");
 
-    const success = (pos) => {
-      const { latitude, longitude } = pos.coords;
-      setPosition([latitude, longitude]);
-      setStatus("You are here.");
-      setLoading(false);
-    };
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setMyLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setStatus("Your location loaded.");
+        setLoadingLocation(false);
+      },
+      (error) => {
+        setStatus(
+          error.code === error.PERMISSION_DENIED
+            ? "Location permission denied. Please allow location access."
+            : "Unable to retrieve your location."
+        );
+        setLoadingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
 
-    const error = (err) => {
-      if (err.code === err.PERMISSION_DENIED) {
-        setStatus("Location permission denied. Please allow location access.");
-      } else {
-        setStatus("Unable to retrieve your location.");
+  const loadMeetup = async (id = meetupId) => {
+    const lookupId = id.trim();
+    if (!token || !lookupId) return [];
+
+    try {
+      const res = await fetch(apiUrl(`/api/meetups/${lookupId}`), { headers: authHeaders });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Failed to load meetup.");
+        return [];
       }
-      setLoading(false);
-    };
 
-    navigator.geolocation.getCurrentPosition(success, error, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0,
-    });
+      const meetupParticipants = data.participants || [];
+      const others = meetupParticipants
+        .filter((participant) => participant.location && !participant.isCurrentUser)
+        .map((participant) => ({
+          id: participant.userId,
+          name: participant.username || "Friend",
+          lat: participant.location.lat,
+          lng: participant.location.lng,
+        }));
+      const me = meetupParticipants.find((participant) => participant.isCurrentUser && participant.location);
+      const loadedId = data.meetup?.id || lookupId;
+
+      setMeetupId(loadedId);
+      setMeetupIdInput(data.meetup?.meetupSaveId || loadedId);
+      setParticipants(meetupParticipants);
+      setFriendLocations(others);
+      setMeetingPoint(data.suggestedMeetingPoint || null);
+      setTitle(data.meetup?.title || title);
+      setCoffeeShops([]);
+
+      if (me?.location) {
+        setMyLocation({ lat: me.location.lat, lng: me.location.lng });
+      }
+
+      setStatus("Meetup loaded.");
+      return meetupParticipants;
+    } catch (error) {
+      setStatus("Could not load meetup.");
+      return [];
+    }
   };
 
-  const toggleMeetupFriend = (friendId) => {
-    setMeetupMessage("");
-    setSelectedFriendId((id) => (id === friendId ? "" : friendId));
-  };
-
-  const saveMeetup = async () => {
-    setMeetupMessage("");
-
+  const createMeetup = async () => {
     if (!token) {
-      setMeetupMessage("Please login to create a meetup.");
+      setStatus("Please log in first.");
       return;
     }
 
-    if (!selectedFriendId) {
-      setMeetupMessage("Choose one friend for the meetup.");
+    if (!myLocation) {
+      setStatus("Load your location first.");
       return;
     }
 
-    setSavingMeetup(true);
-
-    const res = await fetch(apiUrl("/api/meetups"), {
-      method: "POST",
-      headers: authHeaders,
-      body: JSON.stringify({
-        title: meetupTitle,
-        friendId: selectedFriendId,
-        friendIds: [selectedFriendId],
-        invitedFriendId: selectedFriendId,
-        invitedFriendIds: [selectedFriendId],
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-
-    setSavingMeetup(false);
-
-    if (!res.ok) {
-      setMeetupMessage(data?.message || "Could not save meetup.");
+    if (selectedFriendIds.length === 0) {
+      setStatus("Select at least one friend.");
       return;
     }
 
-    setMeetupMessage(`Meetup saved. ID: ${data.meetupSaveId || data.meetupId}`);
-    setMeetupTitle("");
-    setSelectedFriendId("");
+    try {
+      setSavingMeetup(true);
+      setStatus("Creating meetup...");
+
+      const createRes = await fetch(apiUrl("/api/meetups"), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          title,
+          invitedFriendIds: selectedFriendIds,
+          friendIds: selectedFriendIds,
+        }),
+      });
+      const createData = await createRes.json().catch(() => ({}));
+
+      if (!createRes.ok) {
+        setStatus(createData.message || "Failed to create meetup.");
+        return;
+      }
+
+      const newMeetupId = createData.meetupId;
+      setMeetupId(newMeetupId);
+      setMeetupIdInput(createData.meetupSaveId || newMeetupId);
+
+      const locationRes = await fetch(apiUrl(`/api/meetups/${newMeetupId}/location`), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          lat: myLocation.lat,
+          lng: myLocation.lng,
+          source: "gps",
+        }),
+      });
+      const locationData = await locationRes.json().catch(() => ({}));
+
+      if (!locationRes.ok) {
+        setStatus(locationData.message || "Meetup created, but location was not saved.");
+        return;
+      }
+
+      setStatus("Meetup created. Your location has been saved.");
+      await loadMeetup(newMeetupId);
+    } catch (error) {
+      setStatus("Something went wrong while creating the meetup.");
+    } finally {
+      setSavingMeetup(false);
+    }
+  };
+
+  const shareMyLocationToMeetup = async () => {
+    if (!token) {
+      setStatus("Please log in first.");
+      return;
+    }
+
+    if (!meetupId) {
+      setStatus("Load or create a meetup first.");
+      return;
+    }
+
+    if (!myLocation) {
+      setStatus("Use My Location first.");
+      return;
+    }
+
+    try {
+      setStatus("Saving your location to this meetup...");
+
+      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/location`), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          lat: myLocation.lat,
+          lng: myLocation.lng,
+          source: "gps",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Failed to save your location.");
+        return;
+      }
+
+      const meetupParticipants = await loadMeetup(meetupId);
+      const locationsCount = meetupParticipants.filter((participant) => participant.location).length;
+
+      if (locationsCount >= 2) {
+        await calculateMeetup();
+      } else {
+        setStatus("Your meetup location has been saved.");
+      }
+    } catch (error) {
+      setStatus("Something went wrong while saving your location.");
+    }
+  };
+
+  const calculateMeetup = async () => {
+    if (!token) {
+      setStatus("Please log in first.");
+      return;
+    }
+
+    if (!meetupId) {
+      setStatus("Create or load a meetup first.");
+      return;
+    }
+
+    try {
+      setStatus("Calculating meeting point...");
+
+      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/calculate`), {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Failed to calculate meeting point.");
+        return;
+      }
+
+      setMeetingPoint(data.meetingPoint || null);
+      await loadMeetup(meetupId);
+      setStatus("Meeting point calculated.");
+    } catch (error) {
+      setStatus("Something went wrong while calculating.");
+    }
+  };
+
+  const findCoffeeShops = async () => {
+    if (!meetingPoint) {
+      setStatus("Calculate a meeting point first.");
+      return;
+    }
+
+    try {
+      setLoadingCoffee(true);
+      setStatus("Finding coffee shops...");
+
+      const radiusMeters = meetingPoint.radiusMeters || 1500;
+      const res = await fetch(
+        apiUrl(
+          `/api/coffee-shops?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}`
+        )
+      );
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Could not find coffee shops.");
+        return;
+      }
+
+      setCoffeeShops(data.shops || []);
+      setStatus((data.shops || []).length ? "Coffee shops loaded." : "No coffee shops found nearby.");
+    } catch (error) {
+      setStatus("Could not find coffee shops.");
+    } finally {
+      setLoadingCoffee(false);
+    }
   };
 
   return (
     <div className="map-page-container">
       <div className="map-page-header">
-        <h2>Your Location Map</h2>
+        <h2>Map Meetup</h2>
         <p>{status}</p>
-      </div>
-
-      <div className="location-request-card">
-        <div>
-          <h3>Allow Location Access</h3>
-          <p>Press the button below so the app can show your current location on the map.</p>
-        </div>
-        <button
-          className="location-button"
-          onClick={requestLocation}
-          disabled={loading || Boolean(position)}
-        >
-          {position ? "Location enabled" : loading ? "Allowing location..." : "Allow access"}
-        </button>
       </div>
 
       <div className="meetup-card">
         <div className="meetup-card-header">
           <div>
             <h3>Create Meetup</h3>
-            <p>Choose the friend you want to add to this meetup.</p>
+            <p>Load your location, invite friends, and save a meetup everyone can share into.</p>
           </div>
-          <span className="meetup-count">{selectedFriendId ? "1 selected" : "0 selected"}</span>
+          <span className="meetup-count">
+            {selectedFriendIds.length} friend{selectedFriendIds.length === 1 ? "" : "s"} selected
+          </span>
         </div>
 
-        <label className="meetup-title-field" htmlFor="meetup-title">
-          Meetup title
-          <input
-            id="meetup-title"
-            type="text"
-            value={meetupTitle}
-            onChange={(e) => setMeetupTitle(e.target.value)}
-            placeholder="Coffee, study session, match day..."
-          />
-        </label>
+        <div className="meetup-form-grid">
+          <label className="meetup-title-field" htmlFor="meetup-title">
+            Meetup title
+            <input
+              id="meetup-title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Coffee, study session, match day..."
+            />
+          </label>
 
-        <div className="friend-picker">
-          {friends.length === 0 ? (
-            <p className="friend-picker-empty">No friends yet. Add friends first, then come back to create a meetup.</p>
-          ) : (
-            friends.map((friend) => {
-              const isSelected = selectedFriendId === friend.id;
-              return (
-                <button
-                  key={friend.id}
-                  type="button"
-                  className={`friend-choice${isSelected ? " selected" : ""}`}
-                  onClick={() => toggleMeetupFriend(friend.id)}
-                >
-                  <span>
-                    <strong>{friend.username}</strong>
-                    <small>{friend.email}</small>
-                  </span>
-                  <span className="friend-choice-status">{isSelected ? "Added" : "Add"}</span>
-                </button>
-              );
-            })
-          )}
+          <label className="meetup-title-field" htmlFor="meetup-id">
+            Meetup ID
+            <input
+              id="meetup-id"
+              type="text"
+              value={meetupIdInput}
+              onChange={(e) => setMeetupIdInput(e.target.value)}
+              placeholder="Paste meetup ID to open"
+            />
+          </label>
         </div>
 
         <div className="meetup-actions">
-          <button
-            type="button"
-            className="save-meetup-button"
-            onClick={saveMeetup}
-            disabled={savingMeetup || !selectedFriendId}
-          >
-            {savingMeetup ? "Saving..." : "Save meetup"}
+          <button type="button" className="save-meetup-button" onClick={getMyLocation} disabled={loadingLocation}>
+            {loadingLocation ? "Locating..." : "Use My Location"}
           </button>
-          <button
-            type="button"
-            className="clear-meetup-button"
-            onClick={() => setSelectedFriendId("")}
-            disabled={!selectedFriendId}
-          >
-            Clear
+          <button type="button" className="save-meetup-button" onClick={createMeetup} disabled={savingMeetup}>
+            {savingMeetup ? "Creating..." : "Create Meetup"}
+          </button>
+          <button type="button" className="save-meetup-button" onClick={shareMyLocationToMeetup}>
+            Share Location
+          </button>
+          <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupIdInput)}>
+            Open Meetup
+          </button>
+          <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupId)} disabled={!meetupId}>
+            Refresh
+          </button>
+          <button type="button" className="clear-meetup-button" onClick={calculateMeetup} disabled={!meetupId}>
+            Calculate
+          </button>
+          <button type="button" className="clear-meetup-button" onClick={findCoffeeShops} disabled={!meetingPoint || loadingCoffee}>
+            {loadingCoffee ? "Finding..." : "Find Coffee Shops"}
           </button>
         </div>
 
-        {meetupMessage && <p className="meetup-message">{meetupMessage}</p>}
+        <div className="meetup-details-grid">
+          <div className="friend-picker-panel">
+            <button
+              type="button"
+              className="friend-dropdown-header"
+              onClick={() => setDropdownOpen((open) => !open)}
+            >
+              {selectedFriendIds.length > 0
+                ? `${selectedFriendIds.length} friend${selectedFriendIds.length > 1 ? "s" : ""} selected`
+                : "Select friends"}
+            </button>
+
+            {friends.length === 0 ? (
+              <p className="friend-picker-empty">No friends available.</p>
+            ) : (
+              dropdownOpen && (
+                <div className="friend-dropdown-list">
+                  {friends.map((friend) => (
+                    <label key={friend.id} className="friend-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedFriendIds.includes(friend.id)}
+                        onChange={() => toggleFriend(friend.id)}
+                      />
+                      <span>{friend.username}</span>
+                    </label>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+
+          <div className="participants-panel">
+            <h3>Meetup Participants</h3>
+            {participants.length === 0 ? (
+              <p>No meetup loaded.</p>
+            ) : (
+              participants.map((participant) => (
+                <div key={participant.userId} className="participant-row">
+                  <strong>
+                    {participant.isCurrentUser
+                      ? `${participant.username || "You"} (You)`
+                      : participant.username || "Friend"}
+                  </strong>
+                  <span>
+                    {participant.location
+                      ? `${participant.location.lat.toFixed(5)}, ${participant.location.lng.toFixed(5)}`
+                      : "No location shared yet"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="map-wrapper">
-        {position ? (
-          <MapContainer center={position} zoom={15} scrollWheelZoom={true} className="map-container">
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker position={position} icon={userIcon}>
+        <MapContainer
+          center={myLocation ? [myLocation.lat, myLocation.lng] : defaultCenter}
+          zoom={myLocation ? 15 : 12}
+          scrollWheelZoom
+          className="map-container"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+
+          <MapBounds points={mapPoints} />
+
+          {myLocation && (
+            <Marker position={[myLocation.lat, myLocation.lng]} icon={markerIcon}>
               <Popup>You are here.</Popup>
             </Marker>
-            <LocationUpdater position={position} />
-          </MapContainer>
-        ) : (
-          <div className="map-loading">
-            <p>{status}</p>
-          </div>
-        )}
+          )}
+
+          {friendLocations.map((friend) => (
+            <Marker key={friend.id} position={[friend.lat, friend.lng]} icon={markerIcon}>
+              <Popup>{friend.name}</Popup>
+            </Marker>
+          ))}
+
+          {meetingPoint && (
+            <>
+              <Marker position={[meetingPoint.lat, meetingPoint.lng]} icon={meetingIcon}>
+                <Popup>Suggested meeting point</Popup>
+              </Marker>
+              <Circle
+                center={[meetingPoint.lat, meetingPoint.lng]}
+                radius={meetingPoint.radiusMeters || 500}
+                pathOptions={{ className: "meeting-radius" }}
+              />
+            </>
+          )}
+
+          {myLocation &&
+            meetingPoint &&
+            [myLocation, ...friendLocations].map((point) => (
+              <Polyline
+                key={`${point.lat}-${point.lng}`}
+                positions={[
+                  [point.lat, point.lng],
+                  [meetingPoint.lat, meetingPoint.lng],
+                ]}
+                pathOptions={{ color: "#f97316", weight: 3, opacity: 0.75 }}
+              >
+                <Tooltip className="line-tooltip">Route line</Tooltip>
+              </Polyline>
+            ))}
+
+          {coffeeShops.map((shop) => (
+            <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={coffeeIcon}>
+              <Popup>{shop.name}</Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </div>
     </div>
   );

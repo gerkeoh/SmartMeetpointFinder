@@ -125,6 +125,45 @@
   outline-offset: 2px;
 }
 
+.meetup-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.meetup-details-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(280px, 1.25fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.friend-picker-panel,
+.participants-panel {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.participants-panel h3 {
+  margin-bottom: 0.75rem;
+}
+
+.participant-row {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #334155;
+  color: #d9d9d9;
+}
+
+.participant-row strong,
+.participant-row span {
+  overflow-wrap: anywhere;
+}
+
 .friend-picker {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -224,6 +263,49 @@
   font-weight: 700;
 }
 
+.friend-dropdown-header {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 2px solid #f97316;
+  border-radius: 8px;
+  background: #222;
+  color: #d9d9d9;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.friend-dropdown-header:hover {
+  background: #2f2f2f;
+}
+
+.friend-dropdown-list {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #222;
+}
+
+.friend-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #d9d9d9;
+  font-weight: 700;
+}
+
+.friend-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #f97316;
+}
+
 .map-wrapper {
   width: 100%;
   min-height: 68vh;
@@ -249,11 +331,71 @@
   padding: 1.5rem;
 }
 
+.custom-pin {
+  background: transparent;
+  border: none;
+}
+
+.pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 3px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transform: rotate(-45deg);
+}
+
+.pin-text {
+  max-width: 44px;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: rotate(45deg);
+}
+
+.meeting-pin {
+  background: #f97316;
+}
+
+.coffee-pin {
+  width: 48px;
+  height: 48px;
+  background: #2563eb;
+}
+
+.meeting-radius,
+.midpoint-radius {
+  stroke: #f97316;
+  fill: #f97316;
+  fill-opacity: 0.2;
+}
+
+.line-tooltip {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(17, 24, 39, 0.9);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 720px) {
   .location-request-card,
   .meetup-card-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .meetup-details-grid {
+    grid-template-columns: 1fr;
   }
 
   .location-button,
