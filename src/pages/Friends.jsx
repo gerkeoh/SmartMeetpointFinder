@@ -166,12 +166,6 @@ const Friends = () => {
                       <div>
                         <button
                           type="button"
-                          onClick={() => toggleMeetupFriend(f.id)}
-                        >
-                          {isSelected ? "Remove from meetup" : "Add to meetup"}
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => removeFriend(f.id)}
                         >
                           Remove friend

@@ -439,9 +439,6 @@ const MapPage = () => {
           <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupId)} disabled={!meetupId}>
             Refresh
           </button>
-          <button type="button" className="clear-meetup-button" onClick={calculateMeetup} disabled={!meetupId}>
-            Calculate
-          </button>
           <button type="button" className="clear-meetup-button" onClick={findCoffeeShops} disabled={!meetingPoint || loadingCoffee}>
             {loadingCoffee ? "Finding..." : "Find Coffee Shops"}
           </button>
