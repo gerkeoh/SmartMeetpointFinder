@@ -7,6 +7,15 @@ const Friends = () => {
   const [q, setQ] = useState("");
   const [results, setResults] = useState([]);
   const [msg, setMsg] = useState("");
+  const [selectedFriendIds, setSelectedFriendIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem("meetupFriendIds");
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
 
   const authHeaders = token
     ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
@@ -31,6 +40,14 @@ const Friends = () => {
     loadFriends();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("meetupFriendIds", JSON.stringify(selectedFriendIds));
+  }, [selectedFriendIds]);
+
+  useEffect(() => {
+    setSelectedFriendIds((ids) => ids.filter((id) => friends.some((f) => f.id === id)));
+  }, [friends]);
 
   const searchUsers = async (e) => {
     e.preventDefault();
@@ -84,7 +101,16 @@ const Friends = () => {
       setMsg(data?.message || "Could not remove friend.");
       return;
     }
+    setSelectedFriendIds((ids) => ids.filter((id) => id !== friendId));
     await loadFriends();
+  };
+
+  const toggleMeetupFriend = (friendId) => {
+    setSelectedFriendIds((ids) =>
+      ids.includes(friendId)
+        ? ids.filter((id) => id !== friendId)
+        : [...ids, friendId]
+    );
   };
 
   return (
@@ -129,20 +155,54 @@ const Friends = () => {
               {friends.length === 0 ? (
                 <p>No friends yet.</p>
               ) : (
-                friends.map((f) => (
-                  <div
-                    key={f.id}
-                  >
-                    <div>
-                      <strong>{f.username}</strong>
-                      <div>{f.email}</div>
+                friends.map((f) => {
+                  const isSelected = selectedFriendIds.includes(f.id);
+                  return (
+                    <div key={f.id}>
+                      <div>
+                        <strong>{f.username}</strong>
+                        <div>{f.email}</div>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => toggleMeetupFriend(f.id)}
+                        >
+                          {isSelected ? "Remove from meetup" : "Add to meetup"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeFriend(f.id)}
+                        >
+                          Remove friend
+                        </button>
+                      </div>
                     </div>
-                    <button type="button" onClick={() => removeFriend(f.id)}>
-                      Remove
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               )}
+            </div>
+
+            <div>
+              <h3>Meetup Participants</h3>
+              {selectedFriendIds.length === 0 ? (
+                <p>Select friends from your list to add them to the meetup.</p>
+              ) : (
+                <ul>
+                  {friends
+                    .filter((f) => selectedFriendIds.includes(f.id))
+                    .map((friend) => (
+                      <li key={friend.id}>{friend.username}</li>
+                    ))}
+                </ul>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedFriendIds([])}
+                disabled={selectedFriendIds.length === 0}
+              >
+                Clear meetup selection
+              </button>
             </div>
           </>
         )}
