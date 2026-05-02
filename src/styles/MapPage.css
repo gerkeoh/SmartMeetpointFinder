@@ -28,7 +28,7 @@
   margin-bottom: 1.5rem;
   background: #222;
   border: 1px solid #f97316;
-  border-radius: 16px;
+  border-radius: 8px;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
 
@@ -63,10 +63,171 @@
   cursor: not-allowed;
 }
 
+.meetup-card {
+  margin-bottom: 1.5rem;
+  padding: 1.4rem 1.6rem;
+  background: #222;
+  border: 1px solid #f97316;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.meetup-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.meetup-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.meetup-card p {
+  margin: 0;
+  color: #d9d9d9;
+  line-height: 1.6;
+}
+
+.meetup-count {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #475569;
+  border-radius: 9999px;
+  color: #d9d9d9;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.meetup-title-field {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.meetup-title-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+  color: #f8fafc;
+  font: inherit;
+}
+
+.meetup-title-field input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.friend-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.friend-picker-empty {
+  grid-column: 1 / -1;
+}
+
+.friend-choice {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.friend-choice:hover {
+  border-color: #2563eb;
+}
+
+.friend-choice.selected {
+  border-color: #22c55e;
+  background: #12301e;
+}
+
+.friend-choice span:first-child {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.friend-choice strong,
+.friend-choice small {
+  overflow-wrap: anywhere;
+}
+
+.friend-choice small {
+  color: #cbd5e1;
+}
+
+.friend-choice-status {
+  flex: 0 0 auto;
+  color: #d9d9d9;
+  font-weight: 700;
+}
+
+.meetup-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.save-meetup-button,
+.clear-meetup-button {
+  padding: 0.85rem 1.25rem;
+  border: none;
+  border-radius: 9999px;
+  color: #f8fafc;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.save-meetup-button {
+  background: #2563eb;
+}
+
+.save-meetup-button:hover {
+  background: #1d4ed8;
+}
+
+.clear-meetup-button {
+  background: #475569;
+}
+
+.clear-meetup-button:hover {
+  background: #334155;
+}
+
+.save-meetup-button:disabled,
+.clear-meetup-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.meetup-message {
+  margin-top: 1rem !important;
+  font-weight: 700;
+}
+
 .map-wrapper {
   width: 100%;
   min-height: 68vh;
-  border-radius: 16px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(21, 32, 43, 0.16);
 }
@@ -86,4 +247,18 @@
   color: #d9d9d9;
   font-size: 1rem;
   padding: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .location-request-card,
+  .meetup-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .location-button,
+  .save-meetup-button,
+  .clear-meetup-button {
+    width: 100%;
+  }
 }
