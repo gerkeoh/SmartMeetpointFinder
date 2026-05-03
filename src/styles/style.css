@@ -585,15 +585,11 @@ nav {
   .header-nav {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 6px;
+    justify-content: center;
+    gap: 8px;
     width: min(100%, 390px);
     padding: 8px;
     overflow-x: auto;
-    border: 1px solid rgba(249, 115, 22, 0.35);
-    border-radius: 9999px;
-    background: #111827;
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.28);
     scrollbar-width: none;
   }
 
@@ -603,25 +599,30 @@ nav {
 
   .nav-link {
     flex: 0 0 auto;
-    width: auto;
+    width: 48px;
     min-width: 0;
-    min-height: 40px;
-    padding: 0.55rem 0.85rem;
-    border: 0;
+    min-height: 48px;
+    padding: 0;
+    border: 2px solid #f97316;
     border-radius: 9999px;
-    background: transparent;
-    color: #cbd5e1;
-    font-size: 13px;
+    background: #222;
+    color: #D9D9D9;
+    font-size: 0;
   }
 
   .nav-icon {
     display: inline-flex;
   }
 
+  .nav-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+
   .nav-link:hover,
   .nav-link:focus {
-    background: #f97316;
-    color: #ffffff;
+    background-color: #f97316;
+    color: #D9D9D9;
     outline: none;
   }
 
