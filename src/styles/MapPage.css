@@ -125,13 +125,6 @@
   outline-offset: 2px;
 }
 
-.meetup-id-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: center;
-}
-
 .meetup-status-message {
   margin-top: 1rem !important;
   padding-top: 1rem;
@@ -509,6 +502,87 @@
   min-height: 68vh;
 }
 
+.previous-meetups-panel {
+  margin-top: 1.5rem;
+  padding: 1.4rem 1.6rem;
+  background: #222;
+  border: 1px solid #f97316;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
+.previous-meetups-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.previous-meetups-header h3 {
+  margin: 0 0 0.35rem;
+  color: #f8fafc;
+  font-size: 1.2rem;
+}
+
+.previous-meetups-panel p {
+  margin: 0;
+  color: #d9d9d9;
+  line-height: 1.6;
+}
+
+.previous-meetups-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.previous-meetup-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+  color: #d9d9d9;
+  cursor: pointer;
+  text-align: left;
+}
+
+.previous-meetup-row:hover,
+.previous-meetup-row.active {
+  border-color: #f97316;
+}
+
+.previous-meetup-row span {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.previous-meetup-row strong,
+.previous-meetup-row small {
+  overflow-wrap: anywhere;
+}
+
+.previous-meetup-row small {
+  color: #cbd5e1;
+  text-transform: capitalize;
+}
+
+.previous-meetup-row b {
+  flex: 0 0 auto;
+  min-width: 32px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 9999px;
+  background: #2563eb;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
 .map-loading {
   display: flex;
   align-items: center;
@@ -587,13 +661,15 @@
     grid-template-columns: 1fr;
   }
 
-  .meetup-id-control {
-    grid-template-columns: 1fr;
-  }
-
   .invitation-row,
   .message-form {
     grid-template-columns: 1fr;
+  }
+
+  .previous-meetups-header,
+  .previous-meetup-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .location-button,

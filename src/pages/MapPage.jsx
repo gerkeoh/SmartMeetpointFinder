@@ -92,7 +92,7 @@ const MapPage = () => {
   const [friends, setFriends] = useState([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState([]);
   const [meetupId, setMeetupId] = useState("");
-  const [meetupIdInput, setMeetupIdInput] = useState("");
+  const [previousMeetups, setPreviousMeetups] = useState([]);
   const [myLocation, setMyLocation] = useState(null);
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
@@ -109,6 +109,7 @@ const MapPage = () => {
   const [loadingCoffee, setLoadingCoffee] = useState(false);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingPreviousMeetups, setLoadingPreviousMeetups] = useState(false);
 
   const authHeaders = useMemo(
     () =>
@@ -164,8 +165,33 @@ const MapPage = () => {
     }
   };
 
+  const loadPreviousMeetups = async () => {
+    if (!token) {
+      setPreviousMeetups([]);
+      return;
+    }
+
+    try {
+      setLoadingPreviousMeetups(true);
+      const res = await fetch(apiUrl("/api/meetups"), { headers: authHeaders });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Failed to load previous meetups.");
+        return;
+      }
+
+      setPreviousMeetups(data.meetups || []);
+    } catch (error) {
+      setStatus("Could not load previous meetups.");
+    } finally {
+      setLoadingPreviousMeetups(false);
+    }
+  };
+
   useEffect(() => {
     loadInvitations();
+    loadPreviousMeetups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, authHeaders]);
 
@@ -267,7 +293,6 @@ const MapPage = () => {
       const loadedId = data.meetup?.id || lookupId;
 
       setMeetupId(loadedId);
-      setMeetupIdInput(data.meetup?.meetupSaveId || loadedId);
       setParticipants(meetupParticipants);
       setFriendLocations(others);
       setMeetingPoint(data.suggestedMeetingPoint || null);
@@ -338,10 +363,10 @@ const MapPage = () => {
       }
 
       setMeetupId(data.meetupId);
-      setMeetupIdInput(data.meetupId);
       await loadInvitations();
       await loadMeetup(data.meetupId);
       await loadMessages(data.meetupId);
+      await loadPreviousMeetups();
       setStatus("Invitation accepted. Meetup chat is open.");
     } catch (error) {
       setStatus("Something went wrong while accepting the invitation.");
@@ -417,7 +442,6 @@ const MapPage = () => {
 
       const newMeetupId = createData.meetupId;
       setMeetupId(newMeetupId);
-      setMeetupIdInput(createData.meetupSaveId || newMeetupId);
 
       const locationRes = await fetch(apiUrl(`/api/meetups/${newMeetupId}/location`), {
         method: "POST",
@@ -438,6 +462,7 @@ const MapPage = () => {
       setStatus("Meetup created. Invitations have been sent.");
       await loadMeetup(newMeetupId);
       await loadMessages(newMeetupId);
+      await loadPreviousMeetups();
     } catch (error) {
       setStatus("Something went wrong while creating the meetup.");
     } finally {
@@ -577,20 +602,16 @@ const MapPage = () => {
         </div>
 
         <div className="meetup-form-grid">
-          <label className="meetup-title-field meetup-id-field" htmlFor="meetup-id">
-            Meetup ID
-            <span className="meetup-id-control">
-              <input
-                id="meetup-id"
-                type="text"
-                value={meetupIdInput}
-                onChange={(e) => setMeetupIdInput(e.target.value)}
-                placeholder="Paste meetup ID to open"
-              />
-              <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupIdInput)}>
-                Open Meetup
-              </button>
-            </span>
+          <label className="meetup-title-field" htmlFor="meetup-title">
+            Meetup Title
+            <input
+              id="meetup-title"
+              type="text"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Friday coffee, study meetup, lunch plan..."
+              maxLength={80}
+            />
           </label>
         </div>
 
@@ -835,6 +856,44 @@ const MapPage = () => {
             </Marker>
           ))}
         </MapContainer>
+      </div>
+
+      <div className="previous-meetups-panel">
+        <div className="previous-meetups-header">
+          <div>
+            <h3>Previous Meetups</h3>
+            <p>Open a meetup you created or joined.</p>
+          </div>
+          <button
+            type="button"
+            className="clear-meetup-button compact-action-button"
+            onClick={loadPreviousMeetups}
+            disabled={loadingPreviousMeetups}
+          >
+            {loadingPreviousMeetups ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        {previousMeetups.length === 0 ? (
+          <p>No previous meetups yet.</p>
+        ) : (
+          <div className="previous-meetups-list">
+            {previousMeetups.map((meetup) => (
+              <button
+                key={meetup.id}
+                type="button"
+                className={`previous-meetup-row${meetupId === meetup.id ? " active" : ""}`}
+                onClick={() => loadMeetup(meetup.id)}
+              >
+                <span>
+                  <strong>{meetup.title || "Untitled meetup"}</strong>
+                  <small>{meetup.status?.replace(/_/g, " ") || "created"}</small>
+                </span>
+                <b>{meetup.participantIds?.length || 0}</b>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
