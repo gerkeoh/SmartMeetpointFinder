@@ -105,13 +105,18 @@ function getTransportProfile(mode) {
 }
 
 function normalizeTrafficMode(mode) {
-  return ["off", "current", "rush", "quiet"].includes(mode) ? mode : "off";
+  return mode === "current" || mode === "scheduled" ? mode : "current";
 }
 
-function trafficMultiplier(trafficMode) {
-  if (trafficMode === "rush") return 1.35;
-  if (trafficMode === "quiet") return 0.88;
-  return 1;
+function normalizeDepartureTime(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function durationFromDistance(distanceMeters, profile) {
+  return (distanceMeters / 1000 / profile.fallbackSpeedKmh) * 60 * 60;
 }
 
 async function fetchJson(url) {
@@ -159,7 +164,7 @@ async function getOsrmRoute(from, to, profile) {
   };
 }
 
-async function getTomTomRoute(from, to, profile, trafficMode = "off") {
+async function getTomTomRoute(from, to, profile, trafficMode = "current", departureTime = null) {
   const apiKey = process.env.TOMTOM_API_KEY || process.env.REACT_APP_TOMTOM_API_KEY;
   if (!apiKey) return null;
 
@@ -170,8 +175,12 @@ async function getTomTomRoute(from, to, profile, trafficMode = "off") {
   });
 
   if (profile === transportProfiles.driving) {
-    params.set("traffic", trafficMode === "current" ? "true" : "false");
-    params.set("computeTravelTimeFor", trafficMode === "current" ? "all" : "none");
+    params.set("traffic", "true");
+    params.set("computeTravelTimeFor", "all");
+
+    if (departureTime) {
+      params.set("departAt", departureTime);
+    }
   }
 
   const url = `https://api.tomtom.com/routing/1/calculateRoute/${from.lat},${from.lng}:${to.lat},${to.lng}/json?${params}`;
@@ -188,7 +197,7 @@ async function getTomTomRoute(from, to, profile, trafficMode = "off") {
   const trafficDelay =
     typeof summary.trafficDelayInSeconds === "number" ? summary.trafficDelayInSeconds : null;
 
-  const durationSeconds =
+  let durationSeconds =
     summary.liveTrafficIncidentsTravelTimeInSeconds ||
     (noTrafficTime !== null && trafficDelay !== null ? noTrafficTime + trafficDelay : null) ||
     summary.travelTimeInSeconds;
@@ -200,11 +209,15 @@ async function getTomTomRoute(from, to, profile, trafficMode = "off") {
       ?.flatMap((leg) => leg.points || [])
       .map((point) => [point.latitude, point.longitude]) || [];
 
+  if (profile !== transportProfiles.driving) {
+    durationSeconds = durationFromDistance(summary.lengthInMeters, profile);
+  }
+
   return {
     durationSeconds,
     distanceMeters: summary.lengthInMeters,
     coordinates,
-    source: trafficMode === "current" && profile === transportProfiles.driving ? "tomtom-traffic" : "tomtom",
+    source: profile === transportProfiles.driving ? "tomtom-traffic" : "tomtom",
   };
 }
 
@@ -223,23 +236,17 @@ function fallbackRoute(from, to, profile) {
   };
 }
 
-async function getRoute(from, to, profile, trafficMode = "off") {
+async function getRoute(from, to, profile, trafficMode = "current", departureTime = null) {
   let route = null;
 
   try {
-    route = await getTomTomRoute(from, to, profile, trafficMode);
+    route = await getTomTomRoute(from, to, profile, trafficMode, departureTime);
   } catch (error) {
     route = null;
   }
 
   if (route) {
-    return {
-      ...route,
-      durationSeconds:
-        trafficMode === "rush" || trafficMode === "quiet"
-          ? route.durationSeconds * trafficMultiplier(trafficMode)
-          : route.durationSeconds,
-    };
+    return route;
   }
 
   try {
@@ -250,7 +257,10 @@ async function getRoute(from, to, profile, trafficMode = "off") {
 
   return {
     ...route,
-    durationSeconds: route.durationSeconds * trafficMultiplier(trafficMode),
+    durationSeconds:
+      profile === transportProfiles.driving
+        ? route.durationSeconds
+        : durationFromDistance(route.distanceMeters, profile),
   };
 }
 
@@ -333,13 +343,116 @@ function validateParticipants(participants) {
   });
 }
 
+function validateDestination(destination) {
+  if (
+    !destination ||
+    typeof destination.lat !== "number" ||
+    typeof destination.lng !== "number" ||
+    Number.isNaN(destination.lat) ||
+    Number.isNaN(destination.lng)
+  ) {
+    throw new Error("Destination must include numeric lat and lng.");
+  }
+}
+
+async function calculateParticipantRoutes(participants, destination, profile, trafficMode, departureTime) {
+  return Promise.all(
+    participants.map(async (participant) => {
+      const route = await getRoute(participant, destination, profile, trafficMode, departureTime);
+      return {
+        userId: participant.userId,
+        durationMinutes: route.durationSeconds / 60,
+        distanceKm: route.distanceMeters / 1000,
+        coordinates: route.coordinates,
+        source: route.source,
+      };
+    })
+  );
+}
+
+function buildMeetingPointResult(destination, participantRoutes, options = {}) {
+  const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
+  const scored = scoreTravelTimes(travelMinutes);
+  const routeSource = [...new Set(participantRoutes.map((route) => route.source))].join(",");
+
+  return {
+    meetingPoint: {
+      lat: destination.lat,
+      lng: destination.lng,
+      radiusKm: options.radiusKm,
+      radiusMeters: options.radiusMeters,
+      transportMode: options.transportMode,
+      trafficMode: options.trafficMode,
+      departureTime: options.departureTime,
+      selectedPlace: options.selectedPlace || null,
+      routeSource,
+      participantRoutes: participantRoutes.map((route) => ({
+        userId: route.userId,
+        durationMinutes: Number(route.durationMinutes.toFixed(1)),
+        distanceKm: Number(route.distanceKm.toFixed(2)),
+        coordinates: route.coordinates,
+        source: route.source,
+      })),
+    },
+    metrics: {
+      score: Number(scored.score.toFixed(2)),
+      maxTravelMinutes: Number(scored.maxTime.toFixed(1)),
+      avgTravelMinutes: Number(scored.avgTime.toFixed(1)),
+      fairnessSpread: Number(scored.spreadPenalty.toFixed(1)),
+      participantTravelMinutes: travelMinutes.map((time) => Number(time.toFixed(1))),
+      transportMode: options.transportMode,
+      trafficMode: options.trafficMode,
+      departureTime: options.departureTime,
+      routeSource,
+    },
+  };
+}
+
+function getRouteOptions(options = {}) {
+  const transportMode = transportProfiles[options.transportMode] ? options.transportMode : "driving";
+  const trafficMode =
+    transportMode === "driving" ? normalizeTrafficMode(options.trafficMode || "current") : "off";
+  const departureTime =
+    transportMode === "driving" ? normalizeDepartureTime(options.departureTime) : null;
+
+  return {
+    transportMode,
+    trafficMode,
+    departureTime,
+    profile: getTransportProfile(transportMode),
+  };
+}
+
+export async function calculateTravelToPoint(participants, destination, options = {}) {
+  validateParticipants(participants);
+  validateDestination(destination);
+
+  const { transportMode, trafficMode, departureTime, profile } = getRouteOptions(options);
+  const participantRoutes = await calculateParticipantRoutes(
+    participants,
+    destination,
+    profile,
+    trafficMode,
+    departureTime
+  );
+
+  return buildMeetingPointResult(destination, participantRoutes, {
+    transportMode,
+    trafficMode,
+    departureTime,
+    radiusMeters: options.radiusMeters,
+    radiusKm:
+      typeof options.radiusMeters === "number"
+        ? Number((options.radiusMeters / 1000).toFixed(2))
+        : undefined,
+    selectedPlace: options.selectedPlace,
+  });
+}
+
 export async function calculateBestMeetingPoint(participants, options = {}) {
   validateParticipants(participants);
 
-  const transportMode = transportProfiles[options.transportMode] ? options.transportMode : "driving";
-  const trafficMode =
-    transportMode === "driving" ? normalizeTrafficMode(options.trafficMode || "off") : "off";
-  const profile = getTransportProfile(transportMode);
+  const { transportMode, trafficMode, departureTime, profile } = getRouteOptions(options);
   const farthestPair = findFarthestParticipantPair(participants);
   const geographicCenter = midpoint(farthestPair.a, farthestPair.b);
   const diameterKm = calculateDiameterKm(farthestPair.distanceKm);
@@ -347,7 +460,13 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
 
   let routeBetweenFarthest = null;
   try {
-    routeBetweenFarthest = await getRoute(farthestPair.a, farthestPair.b, profile, trafficMode);
+    routeBetweenFarthest = await getRoute(
+      farthestPair.a,
+      farthestPair.b,
+      profile,
+      trafficMode,
+      departureTime
+    );
   } catch (error) {
     routeBetweenFarthest = fallbackRoute(farthestPair.a, farthestPair.b, profile);
   }
@@ -356,17 +475,12 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
   const scoredCandidates = [];
 
   for (const candidate of candidates) {
-    const participantRoutes = await Promise.all(
-      participants.map(async (participant) => {
-        const route = await getRoute(participant, candidate, profile, trafficMode);
-        return {
-          userId: participant.userId,
-          durationMinutes: route.durationSeconds / 60,
-          distanceKm: route.distanceMeters / 1000,
-          coordinates: route.coordinates,
-          source: route.source,
-        };
-      })
+    const participantRoutes = await calculateParticipantRoutes(
+      participants,
+      candidate,
+      profile,
+      trafficMode,
+      departureTime
     );
     const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
     const scored = scoreTravelTimes(travelMinutes);
@@ -389,6 +503,7 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
       radiusMeters: Math.round(radiusKm * 1000),
       transportMode,
       trafficMode,
+      departureTime,
       routeSource: [...new Set(best.participantRoutes.map((route) => route.source))].join(","),
       participantRoutes: best.participantRoutes.map((route) => ({
         userId: route.userId,
@@ -408,6 +523,7 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
       lineDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
       transportMode,
       trafficMode,
+      departureTime,
       routeSource: [...new Set(best.participantRoutes.map((route) => route.source))].join(","),
     },
     debug: {

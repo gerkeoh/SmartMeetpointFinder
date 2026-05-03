@@ -3,7 +3,10 @@ import { randomUUID } from "crypto";
 import { ObjectId } from "mongodb";
 import db from "../db/connection.js";
 import { requireAuth } from "../middleware/authMiddleware.js";
-import { calculateBestMeetingPoint } from "../services/meetingPointService.js";
+import {
+  calculateBestMeetingPoint,
+  calculateTravelToPoint,
+} from "../services/meetingPointService.js";
 
 const router = express.Router();
 
@@ -415,10 +418,11 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
       lat: participant.location.lat,
       lng: participant.location.lng,
     }));
-    const { transportMode = "driving", trafficMode = "off" } = req.body || {};
+    const { transportMode = "driving", trafficMode = "current", departureTime = null } = req.body || {};
     const result = await calculateBestMeetingPoint(algorithmInput, {
       transportMode,
       trafficMode,
+      departureTime,
     });
 
     await db.collection(MEETUPS).updateOne(
@@ -437,6 +441,71 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.post("/meetups/:meetupId/preview-point", requireAuth, async (req, res) => {
+  try {
+    const currentUserId = new ObjectId(req.user.id);
+    const meetup = await db.collection(MEETUPS).findOne(
+      ObjectId.isValid(req.params.meetupId)
+        ? { _id: new ObjectId(req.params.meetupId) }
+        : { meetupSaveId: req.params.meetupId }
+    );
+    if (!meetup) return res.status(404).json({ message: "Meetup not found." });
+
+    const currentParticipant = await db.collection(PARTICIPANTS).findOne({
+      meetupId: meetup._id,
+      userId: currentUserId,
+    });
+    if (!currentParticipant) {
+      return res.status(403).json({ message: "You do not have access to this meetup." });
+    }
+
+    const { lat, lng, place, transportMode = "driving", trafficMode = "current", departureTime = null } =
+      req.body || {};
+
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      return res.status(400).json({ message: "Valid lat and lng are required." });
+    }
+
+    const participantDocs = await db
+      .collection(PARTICIPANTS)
+      .find({ meetupId: meetup._id, location: { $ne: null } })
+      .toArray();
+
+    if (participantDocs.length < 2) {
+      return res.status(400).json({ message: "At least two participant locations are required." });
+    }
+
+    const algorithmInput = participantDocs.map((participant) => ({
+      userId: participant.userId.toString(),
+      lat: participant.location.lat,
+      lng: participant.location.lng,
+    }));
+    const result = await calculateTravelToPoint(
+      algorithmInput,
+      { lat, lng },
+      {
+        transportMode,
+        trafficMode,
+        departureTime,
+        radiusMeters: meetup.suggestedMeetingPoint?.radiusMeters,
+        selectedPlace:
+          place && typeof place === "object"
+            ? {
+                id: typeof place.id === "string" ? place.id : "",
+                name: typeof place.name === "string" ? place.name.slice(0, 120) : "Selected place",
+                type: typeof place.type === "string" ? place.type : "place",
+              }
+            : null,
+      }
+    );
+
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Unable to preview this place." });
   }
 });
 

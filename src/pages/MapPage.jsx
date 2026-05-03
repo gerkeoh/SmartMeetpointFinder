@@ -61,13 +61,6 @@ const travelModeOptions = [
   { value: "cycling", label: "Cycling" },
 ];
 
-const trafficOptions = [
-  { value: "off", label: "No traffic" },
-  { value: "current", label: "Current traffic" },
-  { value: "rush", label: "Rush hour" },
-  { value: "quiet", label: "Quiet roads" },
-];
-
 const placePinLabels = {
   coffee: "Cafe",
   cafe: "Cafe",
@@ -159,10 +152,11 @@ const MapPage = () => {
   const [myLocation, setMyLocation] = useState(null);
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
+  const [calculatedMeetingPoint, setCalculatedMeetingPoint] = useState(null);
   const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
   const [selectedPlaceType, setSelectedPlaceType] = useState("all");
   const [travelMode, setTravelMode] = useState("driving");
-  const [trafficMode, setTrafficMode] = useState("off");
+  const [departureTime, setDepartureTime] = useState("");
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
@@ -179,6 +173,7 @@ const MapPage = () => {
   const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingPreviousMeetups, setLoadingPreviousMeetups] = useState(false);
+  const [previewingPlaceId, setPreviewingPlaceId] = useState("");
 
   const authHeaders = useMemo(
     () =>
@@ -436,6 +431,7 @@ const MapPage = () => {
       setParticipants(meetupParticipants);
       setFriendLocations(others);
       setMeetingPoint(data.suggestedMeetingPoint || null);
+      setCalculatedMeetingPoint(data.suggestedMeetingPoint || null);
       setPlaceSearchRadiusMeters(data.suggestedMeetingPoint?.radiusMeters || null);
       setTitle(data.meetup?.title || title);
       setCoffeeShops([]);
@@ -682,7 +678,11 @@ const MapPage = () => {
       const res = await fetch(apiUrl(`/api/meetups/${meetupId}/calculate`), {
         method: "POST",
         headers: authHeaders,
-        body: JSON.stringify({ transportMode: travelMode, trafficMode }),
+        body: JSON.stringify({
+          transportMode: travelMode,
+          trafficMode: "current",
+          departureTime: travelMode === "driving" ? departureTime || null : null,
+        }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -692,12 +692,14 @@ const MapPage = () => {
       }
 
       setMeetingPoint(data.meetingPoint || null);
+      setCalculatedMeetingPoint(data.meetingPoint || null);
       setPlaceSearchRadiusMeters(data.meetingPoint?.radiusMeters || null);
+      setPreviewingPlaceId("");
       await loadMeetup(meetupId);
       const modeLabel = travelModeOptions.find((option) => option.value === travelMode)?.label || "route";
       const routeSource = data.meetingPoint?.routeSource || "";
       setStatus(
-        trafficMode === "current" && !routeSource.includes("tomtom")
+        travelMode === "driving" && !routeSource.includes("tomtom")
           ? `Meeting point calculated for ${modeLabel.toLowerCase()} routes. Add TOMTOM_API_KEY for live traffic.`
           : `Meeting point calculated for ${modeLabel.toLowerCase()} routes.`
       );
@@ -754,6 +756,66 @@ const MapPage = () => {
     }
   };
 
+  const previewPlaceAsMeetpoint = async (shop) => {
+    if (!token) {
+      setStatus("Please log in first.");
+      return;
+    }
+
+    if (!meetupId || !meetingPoint) {
+      setStatus("Calculate a meeting point before previewing a place.");
+      return;
+    }
+
+    try {
+      setPreviewingPlaceId(shop.id);
+      setStatus(`Checking travel times to ${shop.name}...`);
+
+      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/preview-point`), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          lat: shop.lat,
+          lng: shop.lng,
+          place: {
+            id: shop.id,
+            name: shop.name,
+            type: shop.type,
+          },
+          transportMode: travelMode,
+          trafficMode: "current",
+          departureTime: travelMode === "driving" ? departureTime || null : null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Could not preview this place.");
+        return;
+      }
+
+      setCalculatedMeetingPoint((currentCalculatedPoint) => currentCalculatedPoint || meetingPoint);
+      setMeetingPoint({
+        ...data.meetingPoint,
+        radiusMeters: placeSearchRadiusMeters || meetingPoint.radiusMeters,
+        radiusKm: (placeSearchRadiusMeters || meetingPoint.radiusMeters || 0) / metersInKilometer,
+      });
+      setStatus(`${shop.name} is previewed as the meetup point. Use Undo to return.`);
+    } catch (error) {
+      setStatus("Could not calculate travel times to that place.");
+    } finally {
+      setPreviewingPlaceId("");
+    }
+  };
+
+  const undoPlacePreview = () => {
+    if (!calculatedMeetingPoint) return;
+
+    setMeetingPoint(calculatedMeetingPoint);
+    setPlaceSearchRadiusMeters(calculatedMeetingPoint.radiusMeters || placeSearchRadiusMeters);
+    setStatus("Returned to the calculated meeting point.");
+  };
+
   return (
     <div className="map-page-container">
       <div className="map-page-layout">
@@ -797,6 +859,7 @@ const MapPage = () => {
               onChange={(event) => {
                 setTravelMode(event.target.value);
                 setMeetingPoint(null);
+                setCalculatedMeetingPoint(null);
                 setPlaceSearchRadiusMeters(null);
                 setCoffeeShops([]);
               }}
@@ -808,25 +871,21 @@ const MapPage = () => {
               ))}
             </select>
           </label>
-          <label htmlFor="traffic-mode">
-            Traffic
-            <select
-              id="traffic-mode"
-              value={trafficMode}
+          <label htmlFor="departure-time">
+            Depart at
+            <input
+              id="departure-time"
+              type="datetime-local"
+              value={departureTime}
               onChange={(event) => {
-                setTrafficMode(event.target.value);
+                setDepartureTime(event.target.value);
                 setMeetingPoint(null);
+                setCalculatedMeetingPoint(null);
                 setPlaceSearchRadiusMeters(null);
                 setCoffeeShops([]);
               }}
               disabled={travelMode !== "driving"}
-            >
-              {trafficOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label htmlFor="place-type">
             Search for
@@ -868,6 +927,14 @@ const MapPage = () => {
             disabled={!meetingPoint || loadingCoffee}
           >
             Grow Radius
+          </button>
+          <button
+            type="button"
+            className="clear-meetup-button"
+            onClick={undoPlacePreview}
+            disabled={!calculatedMeetingPoint || meetingPoint === calculatedMeetingPoint}
+          >
+            Undo Place
           </button>
         </div>
 
@@ -935,15 +1002,21 @@ const MapPage = () => {
             ) : (
               <div className="places-list">
                 {coffeeShops.map((shop) => (
-                  <div key={shop.id} className="place-row">
+                  <button
+                    key={shop.id}
+                    type="button"
+                    className="place-row"
+                    onClick={() => previewPlaceAsMeetpoint(shop)}
+                    disabled={previewingPlaceId === shop.id}
+                  >
                     <span>
                       <strong>{shop.name}</strong>
                       <small>{formatPlaceType(shop.type)}</small>
                     </span>
                     {typeof shop.distanceMeters === "number" && (
-                      <b>{formatDistance(shop.distanceMeters)}</b>
+                      <b>{previewingPlaceId === shop.id ? "Checking..." : formatDistance(shop.distanceMeters)}</b>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -1141,7 +1214,12 @@ const MapPage = () => {
           ))}
 
           {coffeeShops.map((shop) => (
-            <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={createPlaceIcon(shop.type)}>
+            <Marker
+              key={shop.id}
+              position={[shop.lat, shop.lng]}
+              icon={createPlaceIcon(shop.type)}
+              eventHandlers={{ click: () => previewPlaceAsMeetpoint(shop) }}
+            >
               <Popup>
                 {shop.name}
                 {typeof shop.distanceMeters === "number" && (
@@ -1152,6 +1230,8 @@ const MapPage = () => {
                 )}
                 <br />
                 {formatPlaceType(shop.type)}
+                <br />
+                Click pin to preview as meetup point
               </Popup>
             </Marker>
           ))}
