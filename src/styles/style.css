@@ -1,8 +1,16 @@
+@font-face {
+    font-family: 'Anta';
+    src: url('../assets/anta_regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Anta';
+    font-family: 'Anta', sans-serif;
 }
 
 .centered-text {
