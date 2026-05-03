@@ -9,6 +9,8 @@ const router = express.Router();
 
 const MEETUPS = "meetups";
 const PARTICIPANTS = "participants";
+const INVITATIONS = "meetupInvitations";
+const MESSAGES = "meetupMessages";
 const CONNECTIONS = "connections";
 const USERS = "users";
 
@@ -27,8 +29,21 @@ async function ensureIndexes() {
   await db.collection(MEETUPS).createIndex({ creatorId: 1, createdAt: -1 });
   await db.collection(MEETUPS).createIndex({ meetupSaveId: 1 }, { unique: true, sparse: true });
   await db.collection(PARTICIPANTS).createIndex({ meetupId: 1, userId: 1 }, { unique: true });
+  await db.collection(INVITATIONS).createIndex({ meetupId: 1, invitedUserId: 1 }, { unique: true });
+  await db.collection(INVITATIONS).createIndex({ invitedUserId: 1, status: 1, createdAt: -1 });
+  await db.collection(MESSAGES).createIndex({ meetupId: 1, createdAt: 1 });
 }
 ensureIndexes().catch(console.error);
+
+function getMeetupLookup(meetupId) {
+  return ObjectId.isValid(meetupId)
+    ? { _id: new ObjectId(meetupId) }
+    : { meetupSaveId: meetupId };
+}
+
+async function getMeetupParticipant(meetupId, userId) {
+  return db.collection(PARTICIPANTS).findOne({ meetupId, userId });
+}
 
 router.get("/meetups", requireAuth, async (req, res) => {
   try {
@@ -72,6 +87,110 @@ router.get("/meetups", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/meetup-invitations", requireAuth, async (req, res) => {
+  try {
+    const invitedUserId = new ObjectId(req.user.id);
+    const invitations = await db
+      .collection(INVITATIONS)
+      .find({ invitedUserId, status: "pending" })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    if (!invitations.length) {
+      return res.status(200).json({ invitations: [] });
+    }
+
+    const meetupIds = invitations.map((invitation) => invitation.meetupId);
+    const creatorIds = invitations.map((invitation) => invitation.creatorId);
+    const [meetups, creators] = await Promise.all([
+      db.collection(MEETUPS).find({ _id: { $in: meetupIds } }).toArray(),
+      db
+        .collection(USERS)
+        .find({ _id: { $in: creatorIds } })
+        .project({ username: 1, email: 1 })
+        .toArray(),
+    ]);
+
+    const meetupMap = new Map(meetups.map((meetup) => [meetup._id.toString(), meetup]));
+    const creatorMap = new Map(creators.map((creator) => [creator._id.toString(), creator]));
+
+    return res.status(200).json({
+      invitations: invitations
+        .map((invitation) => {
+          const meetup = meetupMap.get(invitation.meetupId.toString());
+          const creator = creatorMap.get(invitation.creatorId.toString());
+          if (!meetup) return null;
+
+          return {
+            id: invitation._id.toString(),
+            meetupId: invitation.meetupId.toString(),
+            title: meetup.title || "Untitled meetup",
+            fromUsername: creator?.username || "Friend",
+            createdAt: invitation.createdAt,
+          };
+        })
+        .filter(Boolean),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.post("/meetup-invitations/:invitationId/accept", requireAuth, async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.invitationId)) {
+      return res.status(400).json({ message: "Invalid invitation id." });
+    }
+
+    const invitedUserId = new ObjectId(req.user.id);
+    const invitationId = new ObjectId(req.params.invitationId);
+    const invitation = await db.collection(INVITATIONS).findOne({
+      _id: invitationId,
+      invitedUserId,
+      status: "pending",
+    });
+
+    if (!invitation) {
+      return res.status(404).json({ message: "Invitation not found." });
+    }
+
+    const now = new Date();
+    await db.collection(PARTICIPANTS).updateOne(
+      { meetupId: invitation.meetupId, userId: invitedUserId },
+      {
+        $setOnInsert: {
+          meetupId: invitation.meetupId,
+          userId: invitedUserId,
+          joinedAt: now,
+          location: null,
+          locationSource: null,
+        },
+      },
+      { upsert: true }
+    );
+
+    await Promise.all([
+      db.collection(INVITATIONS).updateOne(
+        { _id: invitationId },
+        { $set: { status: "accepted", updatedAt: now, acceptedAt: now } }
+      ),
+      db.collection(MEETUPS).updateOne(
+        { _id: invitation.meetupId },
+        { $addToSet: { participantIds: invitedUserId }, $set: { updatedAt: now } }
+      ),
+    ]);
+
+    return res.status(200).json({
+      message: "Invitation accepted.",
+      meetupId: invitation.meetupId.toString(),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
 router.post("/meetups", requireAuth, async (req, res) => {
   try {
     const creatorId = new ObjectId(req.user.id);
@@ -105,7 +224,7 @@ router.post("/meetups", requireAuth, async (req, res) => {
       creatorId,
       userId: creatorId,
       invitedUserIds: invitedObjectIds,
-      participantIds: invitedObjectIds,
+      participantIds: [creatorId],
       meetupSaveId: createMeetupSaveId(),
       status: "collecting_locations",
       createdAt: new Date(),
@@ -117,32 +236,30 @@ router.post("/meetups", requireAuth, async (req, res) => {
 
     const meetupResult = await db.collection(MEETUPS).insertOne(meetupDoc);
     const meetupId = meetupResult.insertedId;
-    const friendUsers = await db
-      .collection(USERS)
-      .find({ _id: { $in: invitedObjectIds } })
-      .toArray();
+    const now = new Date();
 
-    const participantDocs = [
-      {
+    await db.collection(PARTICIPANTS).insertOne({
+      meetupId,
+      userId: creatorId,
+      joinedAt: now,
+      location: null,
+      locationSource: null,
+    });
+
+    await db.collection(INVITATIONS).insertMany(
+      invitedObjectIds.map((invitedUserId) => ({
         meetupId,
-        userId: creatorId,
-        joinedAt: new Date(),
-        location: null,
-        locationSource: null,
-      },
-      ...friendUsers.map((user) => ({
-        meetupId,
-        userId: user._id,
-        joinedAt: new Date(),
-        location: null,
-        locationSource: null,
+        creatorId,
+        invitedUserId,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
       })),
-    ];
-
-    await db.collection(PARTICIPANTS).insertMany(participantDocs, { ordered: false });
+      { ordered: false }
+    );
 
     return res.status(201).json({
-      message: "Meetup created.",
+      message: "Meetup created and invitations sent.",
       meetupId: meetupId.toString(),
       meetupSaveId: meetupDoc.meetupSaveId,
     });
@@ -307,6 +424,94 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
     );
 
     return res.status(200).json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.get("/meetups/:meetupId/messages", requireAuth, async (req, res) => {
+  try {
+    const userId = new ObjectId(req.user.id);
+    const meetup = await db.collection(MEETUPS).findOne(getMeetupLookup(req.params.meetupId));
+    if (!meetup) return res.status(404).json({ message: "Meetup not found." });
+
+    const participant = await getMeetupParticipant(meetup._id, userId);
+    if (!participant) {
+      return res.status(403).json({ message: "Join this meetup before opening chat." });
+    }
+
+    const messages = await db
+      .collection(MESSAGES)
+      .find({ meetupId: meetup._id })
+      .sort({ createdAt: 1 })
+      .limit(100)
+      .toArray();
+    const senderIds = [...new Set(messages.map((message) => message.senderId.toString()))].map(
+      (id) => new ObjectId(id)
+    );
+    const senders = senderIds.length
+      ? await db
+          .collection(USERS)
+          .find({ _id: { $in: senderIds } })
+          .project({ username: 1 })
+          .toArray()
+      : [];
+    const senderMap = new Map(senders.map((sender) => [sender._id.toString(), sender]));
+
+    return res.status(200).json({
+      messages: messages.map((message) => ({
+        id: message._id.toString(),
+        meetupId: message.meetupId.toString(),
+        senderId: message.senderId.toString(),
+        senderUsername: senderMap.get(message.senderId.toString())?.username || "User",
+        isCurrentUser: message.senderId.equals(userId),
+        text: message.text,
+        createdAt: message.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.post("/meetups/:meetupId/messages", requireAuth, async (req, res) => {
+  try {
+    const userId = new ObjectId(req.user.id);
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+
+    if (!text) {
+      return res.status(400).json({ message: "Message cannot be empty." });
+    }
+
+    const meetup = await db.collection(MEETUPS).findOne(getMeetupLookup(req.params.meetupId));
+    if (!meetup) return res.status(404).json({ message: "Meetup not found." });
+
+    const participant = await getMeetupParticipant(meetup._id, userId);
+    if (!participant) {
+      return res.status(403).json({ message: "Join this meetup before sending messages." });
+    }
+
+    const now = new Date();
+    const result = await db.collection(MESSAGES).insertOne({
+      meetupId: meetup._id,
+      senderId: userId,
+      text: text.slice(0, 500),
+      createdAt: now,
+    });
+
+    return res.status(201).json({
+      message: {
+        id: result.insertedId.toString(),
+        meetupId: meetup._id.toString(),
+        senderId: userId.toString(),
+        senderUsername: req.user.username || "You",
+        isCurrentUser: true,
+        text: text.slice(0, 500),
+        createdAt: now,
+      },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error." });

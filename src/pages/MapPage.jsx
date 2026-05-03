@@ -100,10 +100,15 @@ const MapPage = () => {
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [savingMeetup, setSavingMeetup] = useState(false);
   const [loadingCoffee, setLoadingCoffee] = useState(false);
+  const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const authHeaders = useMemo(
     () =>
@@ -136,6 +141,32 @@ const MapPage = () => {
     };
 
     loadFriends();
+  }, [token, authHeaders]);
+
+  const loadInvitations = async () => {
+    if (!token) {
+      setInvitations([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl("/api/meetup-invitations"), { headers: authHeaders });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Failed to load invitations.");
+        return;
+      }
+
+      setInvitations(data.invitations || []);
+    } catch (error) {
+      setStatus("Could not load invitations.");
+    }
+  };
+
+  useEffect(() => {
+    loadInvitations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, authHeaders]);
 
   useEffect(() => {
@@ -171,6 +202,8 @@ const MapPage = () => {
 
     return formatDistance((meetingPoint.radiusMeters || 500) * 2);
   }, [meetingPoint]);
+
+  const canChat = Boolean(meetupId && participants.length > 0);
 
   const toggleFriend = (friendId) => {
     setSelectedFriendIds((prev) =>
@@ -253,6 +286,99 @@ const MapPage = () => {
     }
   };
 
+  const loadMessages = async (id = meetupId) => {
+    if (!token || !id) {
+      setMessages([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl(`/api/meetups/${id}/messages`), { headers: authHeaders });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) return;
+      setMessages(data.messages || []);
+    } catch (error) {
+      // Chat refresh should stay quiet so it does not interrupt map actions.
+    }
+  };
+
+  useEffect(() => {
+    if (!canChat) {
+      setMessages([]);
+      return undefined;
+    }
+
+    loadMessages(meetupId);
+    const intervalId = window.setInterval(() => loadMessages(meetupId), 5000);
+
+    return () => window.clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canChat, meetupId, authHeaders]);
+
+  const acceptInvitation = async (invitationId) => {
+    if (!token) {
+      setStatus("Please log in first.");
+      return;
+    }
+
+    try {
+      setAcceptingInvitationId(invitationId);
+      setStatus("Accepting invitation...");
+
+      const res = await fetch(apiUrl(`/api/meetup-invitations/${invitationId}/accept`), {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Could not accept invitation.");
+        return;
+      }
+
+      setMeetupId(data.meetupId);
+      setMeetupIdInput(data.meetupId);
+      await loadInvitations();
+      await loadMeetup(data.meetupId);
+      await loadMessages(data.meetupId);
+      setStatus("Invitation accepted. Meetup chat is open.");
+    } catch (error) {
+      setStatus("Something went wrong while accepting the invitation.");
+    } finally {
+      setAcceptingInvitationId("");
+    }
+  };
+
+  const sendMessage = async (event) => {
+    event.preventDefault();
+
+    const text = messageText.trim();
+    if (!text || !meetupId) return;
+
+    try {
+      setSendingMessage(true);
+      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/messages`), {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Could not send message.");
+        return;
+      }
+
+      setMessages((currentMessages) => [...currentMessages, data.message]);
+      setMessageText("");
+    } catch (error) {
+      setStatus("Could not send message.");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   const createMeetup = async () => {
     if (!token) {
       setStatus("Please log in first.");
@@ -309,8 +435,9 @@ const MapPage = () => {
         return;
       }
 
-      setStatus("Meetup created. Your location has been saved.");
+      setStatus("Meetup created. Invitations have been sent.");
       await loadMeetup(newMeetupId);
+      await loadMessages(newMeetupId);
     } catch (error) {
       setStatus("Something went wrong while creating the meetup.");
     } finally {
@@ -562,7 +689,74 @@ const MapPage = () => {
               </div>
             )}
           </div>
+
+          <div className="invitations-panel">
+            <div className="places-panel-header">
+              <h3>Meetup Invitations</h3>
+              <span>{invitations.length}</span>
+            </div>
+            {invitations.length === 0 ? (
+              <p>No pending invitations.</p>
+            ) : (
+              <div className="invitation-list">
+                {invitations.map((invitation) => (
+                  <div key={invitation.id} className="invitation-row">
+                    <span>
+                      <strong>{invitation.title}</strong>
+                      <small>From {invitation.fromUsername}</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="save-meetup-button compact-action-button"
+                      onClick={() => acceptInvitation(invitation.id)}
+                      disabled={acceptingInvitationId === invitation.id}
+                    >
+                      {acceptingInvitationId === invitation.id ? "Accepting..." : "Accept"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
+        {canChat && (
+          <div className="chat-panel">
+            <div className="chat-panel-header">
+              <h3>Meetup Chat</h3>
+              <span>
+                {messages.length} message{messages.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="message-list">
+              {messages.length === 0 ? (
+                <p>No messages yet.</p>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`message-row${message.isCurrentUser ? " own-message" : ""}`}
+                  >
+                    <strong>{message.senderUsername}</strong>
+                    <span>{message.text}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <form className="message-form" onSubmit={sendMessage}>
+              <input
+                type="text"
+                value={messageText}
+                onChange={(event) => setMessageText(event.target.value)}
+                placeholder="Type a message"
+                maxLength={500}
+              />
+              <button type="submit" className="save-meetup-button" disabled={sendingMessage || !messageText.trim()}>
+                {sendingMessage ? "Sending..." : "Send"}
+              </button>
+            </form>
+          </div>
+        )}
 
         <p className="meetup-status-message">{status}</p>
       </div>
