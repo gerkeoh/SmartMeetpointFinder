@@ -1,7 +1,8 @@
 const EARTH_RADIUS_KM = 6371;
+const toRad = (deg) => (deg * Math.PI) / 180;
+const toDeg = (rad) => (rad * 180) / Math.PI;
 
 function haversineKm(lat1, lon1, lat2, lon2) {
-  const toRad = (deg) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
@@ -58,9 +59,22 @@ function findFarthestParticipantPair(participants) {
 }
 
 function midpoint(a, b) {
+  const lat1 = toRad(a.lat);
+  const lng1 = toRad(a.lng);
+  const lat2 = toRad(b.lat);
+  const lngDelta = toRad(b.lng - a.lng);
+
+  const bx = Math.cos(lat2) * Math.cos(lngDelta);
+  const by = Math.cos(lat2) * Math.sin(lngDelta);
+  const lat = Math.atan2(
+    Math.sin(lat1) + Math.sin(lat2),
+    Math.sqrt((Math.cos(lat1) + bx) ** 2 + by ** 2)
+  );
+  const lng = lng1 + Math.atan2(by, Math.cos(lat1) + bx);
+
   return {
-    lat: (a.lat + b.lat) / 2,
-    lng: (a.lng + b.lng) / 2,
+    lat: toDeg(lat),
+    lng: ((toDeg(lng) + 540) % 360) - 180,
   };
 }
 
