@@ -653,6 +653,71 @@
   border: none;
 }
 
+.custom-user-marker {
+  background: transparent;
+  border: none;
+}
+
+.user-marker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 128px;
+  padding: 0.3rem 0.55rem 0.3rem 0.35rem;
+  border: 2px solid #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.35);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-8px);
+}
+
+.user-marker::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  bottom: -8px;
+  width: 12px;
+  height: 12px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.user-marker-me {
+  background: #16a34a;
+}
+
+.user-marker-friend {
+  background: #2563eb;
+}
+
+.user-marker-dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.user-marker-label {
+  position: relative;
+  z-index: 1;
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pin {
   display: flex;
   align-items: center;

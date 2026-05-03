@@ -626,6 +626,7 @@ async function findPlacesInRadius(req, res) {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
     const radiusMeters = parseInt(req.query.radiusMeters, 10);
+    const expandWhenEmpty = req.query.expand === "true";
 
     if (
       Number.isNaN(lat) ||
@@ -648,12 +649,12 @@ async function findPlacesInRadius(req, res) {
       return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
 
-    const query = `
+    const buildQuery = (searchRadiusMeters) => `
       [out:json][timeout:25];
       (
-        nwr["amenity"~"^(cafe|restaurant|pub|bar|fast_food)$"](around:${radiusMeters},${lat},${lng});
-        nwr["shop"="coffee"](around:${radiusMeters},${lat},${lng});
-        nwr["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
+        nwr["amenity"~"^(cafe|restaurant|pub|bar|fast_food)$"](around:${searchRadiusMeters},${lat},${lng});
+        nwr["shop"="coffee"](around:${searchRadiusMeters},${lat},${lng});
+        nwr["cuisine"="coffee_shop"](around:${searchRadiusMeters},${lat},${lng});
       );
       out center;
     `;
@@ -664,55 +665,71 @@ async function findPlacesInRadius(req, res) {
       "https://overpass.openstreetmap.ru/api/interpreter",
     ];
 
+    const maxSearchRadiusMeters = 10000;
+    let currentRadiusMeters = radiusMeters;
     let lastError = null;
 
-    for (const endpoint of overpassEndpoints) {
-      try {
-        const url = `${endpoint}?${new URLSearchParams({ data: query })}`;
-        const response = await fetch(url, {
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "SmartMeetpointFinder/1.0",
-          },
-        });
+    while (currentRadiusMeters <= maxSearchRadiusMeters) {
+      const query = buildQuery(currentRadiusMeters);
 
-        if (!response.ok) {
-          lastError = new Error(`Overpass request failed with ${response.status}`);
-          continue;
+      for (const endpoint of overpassEndpoints) {
+        try {
+          const url = `${endpoint}?${new URLSearchParams({ data: query })}`;
+          const response = await fetch(url, {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "SmartMeetpointFinder/1.0",
+            },
+          });
+
+          if (!response.ok) {
+            lastError = new Error(`Overpass request failed with ${response.status}`);
+            continue;
+          }
+
+          const data = await response.json();
+          const placesById = new Map();
+
+          (data.elements || [])
+            .map((element) => {
+              const shopLat = element.lat ?? element.center?.lat;
+              const shopLng = element.lon ?? element.center?.lon;
+              if (typeof shopLat !== "number" || typeof shopLng !== "number") return null;
+
+              const distanceFromMeetingPointMeters = distanceMeters(shopLat, shopLng);
+              if (distanceFromMeetingPointMeters > currentRadiusMeters) return null;
+
+              return {
+                id: `${element.type}-${element.id}`,
+                name: element.tags?.name || "Place",
+                type: element.tags?.amenity || element.tags?.shop || "place",
+                lat: shopLat,
+                lng: shopLng,
+                distanceMeters: Math.round(distanceFromMeetingPointMeters),
+              };
+            })
+            .filter(Boolean)
+            .forEach((place) => placesById.set(place.id, place));
+
+          const shops = Array.from(placesById.values()).sort(
+            (a, b) => a.distanceMeters - b.distanceMeters
+          );
+
+          if (shops.length || !expandWhenEmpty || currentRadiusMeters >= maxSearchRadiusMeters) {
+            return res.status(200).json({
+              places: shops,
+              shops,
+              radiusMeters: currentRadiusMeters,
+              expanded: currentRadiusMeters > radiusMeters,
+            });
+          }
+        } catch (error) {
+          lastError = error;
         }
-
-        const data = await response.json();
-        const placesById = new Map();
-
-        (data.elements || [])
-          .map((element) => {
-            const shopLat = element.lat ?? element.center?.lat;
-            const shopLng = element.lon ?? element.center?.lon;
-            if (typeof shopLat !== "number" || typeof shopLng !== "number") return null;
-
-            const distanceFromMeetingPointMeters = distanceMeters(shopLat, shopLng);
-            if (distanceFromMeetingPointMeters > radiusMeters) return null;
-
-            return {
-              id: `${element.type}-${element.id}`,
-              name: element.tags?.name || "Place",
-              type: element.tags?.amenity || element.tags?.shop || "place",
-              lat: shopLat,
-              lng: shopLng,
-              distanceMeters: Math.round(distanceFromMeetingPointMeters),
-            };
-          })
-          .filter(Boolean)
-          .forEach((place) => placesById.set(place.id, place));
-
-        const shops = Array.from(placesById.values()).sort(
-          (a, b) => a.distanceMeters - b.distanceMeters
-        );
-
-        return res.status(200).json({ places: shops, shops });
-      } catch (error) {
-        lastError = error;
       }
+
+      if (!expandWhenEmpty) break;
+      currentRadiusMeters = Math.min(currentRadiusMeters * 2, maxSearchRadiusMeters);
     }
 
     console.error(lastError);

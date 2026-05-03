@@ -17,15 +17,27 @@ const defaultCenter = [53.3498, -6.2603];
 const metersInKilometer = 1000;
 const earthRadiusMeters = 6371000;
 
-const markerIcon = new L.Icon({
-  iconUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const createUserIcon = (name, variant = "friend") =>
+  L.divIcon({
+    className: "custom-user-marker",
+    html: `
+      <div class="user-marker ${variant === "me" ? "user-marker-me" : "user-marker-friend"}">
+        <span class="user-marker-dot">${escapeHtml(name).slice(0, 1).toUpperCase() || "U"}</span>
+        <span class="user-marker-label">${escapeHtml(name || "User")}</span>
+      </div>
+    `,
+    iconSize: [128, 48],
+    iconAnchor: [18, 42],
+    popupAnchor: [0, -40],
+  });
 
 const meetingIcon = L.divIcon({
   className: "custom-pin",
@@ -96,6 +108,7 @@ const MapPage = () => {
   const [myLocation, setMyLocation] = useState(null);
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
+  const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
@@ -228,8 +241,12 @@ const MapPage = () => {
   const meetingDiameterLabel = useMemo(() => {
     if (!meetingPoint) return "";
 
-    return formatDistance((meetingPoint.radiusMeters || 500) * 2);
-  }, [meetingPoint]);
+    return formatDistance((placeSearchRadiusMeters || meetingPoint.radiusMeters || 500) * 2);
+  }, [meetingPoint, placeSearchRadiusMeters]);
+
+  const displayedMeetingRadiusMeters = placeSearchRadiusMeters || meetingPoint?.radiusMeters || 500;
+  const currentUserName =
+    participants.find((participant) => participant.isCurrentUser)?.username || "You";
 
   const chatContacts = useMemo(() => {
     const contacts = new Map();
@@ -325,6 +342,7 @@ const MapPage = () => {
       setParticipants(meetupParticipants);
       setFriendLocations(others);
       setMeetingPoint(data.suggestedMeetingPoint || null);
+      setPlaceSearchRadiusMeters(data.suggestedMeetingPoint?.radiusMeters || null);
       setTitle(data.meetup?.title || title);
       setCoffeeShops([]);
       setActiveChatUser(
@@ -579,6 +597,7 @@ const MapPage = () => {
       }
 
       setMeetingPoint(data.meetingPoint || null);
+      setPlaceSearchRadiusMeters(data.meetingPoint?.radiusMeters || null);
       await loadMeetup(meetupId);
       setStatus("Meeting point calculated.");
     } catch (error) {
@@ -586,7 +605,10 @@ const MapPage = () => {
     }
   };
 
-  const findCoffeeShops = async () => {
+  const findCoffeeShops = async (options = {}) => {
+    const grow = options.grow === true;
+    const autoExpand = options.autoExpand !== false;
+
     if (!meetingPoint) {
       setStatus("Calculate a meeting point first.");
       return;
@@ -594,12 +616,13 @@ const MapPage = () => {
 
     try {
       setLoadingCoffee(true);
-      setStatus("Finding places...");
+      setStatus(grow ? "Growing radius and finding places..." : "Finding places...");
 
-      const radiusMeters = meetingPoint.radiusMeters || 1500;
+      const baseRadiusMeters = placeSearchRadiusMeters || meetingPoint.radiusMeters || 1500;
+      const radiusMeters = grow ? Math.min(baseRadiusMeters * 2, 10000) : baseRadiusMeters;
       const res = await fetch(
         apiUrl(
-          `/api/places?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}`
+          `/api/places?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}&expand=${autoExpand}`
         )
       );
       const data = await res.json().catch(() => ({}));
@@ -610,11 +633,15 @@ const MapPage = () => {
       }
 
       const shops = data.places || data.shops || [];
+      const usedRadiusMeters = data.radiusMeters || radiusMeters;
+      setPlaceSearchRadiusMeters(usedRadiusMeters);
       setCoffeeShops(shops);
       setStatus(
         shops.length
-          ? `${shops.length} place${shops.length === 1 ? "" : "s"} loaded inside the ${meetingDiameterLabel} diameter.`
-          : `No places found inside the ${meetingDiameterLabel} diameter.`
+          ? `${shops.length} place${shops.length === 1 ? "" : "s"} loaded inside the ${formatDistance(
+              usedRadiusMeters * 2
+            )} diameter${data.expanded ? " after expanding the radius" : ""}.`
+          : `No places found inside the ${formatDistance(usedRadiusMeters * 2)} diameter.`
       );
     } catch (error) {
       setStatus("Could not reach the place search. Check that the backend is running.");
@@ -665,6 +692,14 @@ const MapPage = () => {
           </button>
           <button type="button" className="clear-meetup-button" onClick={findCoffeeShops} disabled={!meetingPoint || loadingCoffee}>
             {loadingCoffee ? "Finding..." : "Find Places"}
+          </button>
+          <button
+            type="button"
+            className="clear-meetup-button"
+            onClick={() => findCoffeeShops({ grow: true, autoExpand: false })}
+            disabled={!meetingPoint || loadingCoffee}
+          >
+            Grow Radius
           </button>
         </div>
 
@@ -846,13 +881,13 @@ const MapPage = () => {
           <MapBounds points={mapPoints} />
 
           {myLocation && (
-            <Marker position={[myLocation.lat, myLocation.lng]} icon={markerIcon}>
-              <Popup>You are here.</Popup>
+            <Marker position={[myLocation.lat, myLocation.lng]} icon={createUserIcon(currentUserName, "me")}>
+              <Popup>{currentUserName} is here.</Popup>
             </Marker>
           )}
 
           {friendLocations.map((friend) => (
-            <Marker key={friend.id} position={[friend.lat, friend.lng]} icon={markerIcon}>
+            <Marker key={friend.id} position={[friend.lat, friend.lng]} icon={createUserIcon(friend.name)}>
               <Popup>{friend.name}</Popup>
             </Marker>
           ))}
@@ -864,7 +899,7 @@ const MapPage = () => {
               </Marker>
               <Circle
                 center={[meetingPoint.lat, meetingPoint.lng]}
-                radius={meetingPoint.radiusMeters || 500}
+                radius={displayedMeetingRadiusMeters}
                 pathOptions={{ className: "meeting-radius" }}
               >
                 <Tooltip className="line-tooltip" permanent>
