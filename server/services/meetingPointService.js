@@ -441,6 +441,32 @@ async function calculateParticipantRoutes(participants, destination, profile, tr
   );
 }
 
+async function findBestTwoPersonTimeBalance(participants, candidates, profile, trafficMode, departureTime) {
+  const scoredCandidates = [];
+
+  for (const candidate of candidates) {
+    const participantRoutes = await calculateParticipantRoutes(
+      participants,
+      candidate,
+      profile,
+      trafficMode,
+      departureTime
+    );
+    const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
+    const scored = scoreTravelTimes(travelMinutes);
+
+    scoredCandidates.push({
+      candidate,
+      participantRoutes,
+      travelMinutes,
+      ...scored,
+    });
+  }
+
+  scoredCandidates.sort((a, b) => a.spreadPenalty - b.spreadPenalty || a.avgTime - b.avgTime);
+  return scoredCandidates[0];
+}
+
 function buildMeetingPointResult(destination, participantRoutes, options = {}) {
   const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
   const scored = scoreTravelTimes(travelMinutes);
@@ -542,7 +568,7 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
     routeBetweenFarthest = fallbackRoute(farthestPair.a, farthestPair.b, profile);
   }
 
-  if (participants.length === 2) {
+  if (participants.length === 2 && transportMode !== "driving") {
     const twoPersonResult = buildTwoPersonFairRouteResult(participants, routeBetweenFarthest, profile, {
       transportMode,
       trafficMode,
@@ -578,6 +604,63 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
   }
 
   const candidates = sampleRouteCandidates(routeBetweenFarthest.coordinates, geographicCenter);
+
+  if (participants.length === 2 && transportMode === "driving") {
+    const bestDrivingBalance = await findBestTwoPersonTimeBalance(
+      participants,
+      candidates,
+      profile,
+      trafficMode,
+      departureTime
+    );
+
+    return {
+      meetingPoint: {
+        ...bestDrivingBalance.candidate,
+        radiusKm: Number(radiusKm.toFixed(2)),
+        radiusMeters: Math.round(radiusKm * 1000),
+        transportMode,
+        trafficMode,
+        departureTime,
+        routeSource: [...new Set(bestDrivingBalance.participantRoutes.map((route) => route.source))].join(","),
+        participantRoutes: bestDrivingBalance.participantRoutes.map((route) => ({
+          userId: route.userId,
+          durationMinutes: Number(route.durationMinutes.toFixed(1)),
+          distanceKm: Number(route.distanceKm.toFixed(2)),
+          coordinates: route.coordinates,
+          source: route.source,
+        })),
+      },
+      metrics: {
+        score: Number(bestDrivingBalance.score.toFixed(2)),
+        maxTravelMinutes: Number(bestDrivingBalance.maxTime.toFixed(1)),
+        avgTravelMinutes: Number(bestDrivingBalance.avgTime.toFixed(1)),
+        fairnessSpread: Number(bestDrivingBalance.spreadPenalty.toFixed(1)),
+        participantTravelMinutes: bestDrivingBalance.travelMinutes.map((time) => Number(time.toFixed(1))),
+        routeDistanceKm: Number((routeBetweenFarthest.distanceMeters / 1000).toFixed(2)),
+        lineDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
+        transportMode,
+        trafficMode,
+        departureTime,
+        routeSource: [...new Set(bestDrivingBalance.participantRoutes.map((route) => route.source))].join(","),
+      },
+      debug: {
+        farthestPair: {
+          a: farthestPair.a.userId,
+          b: farthestPair.b.userId,
+        },
+        center: bestDrivingBalance.candidate,
+        geographicCenter,
+        totalDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
+        routeDistanceKm: Number((routeBetweenFarthest.distanceMeters / 1000).toFixed(2)),
+        diameterKm: Number(diameterKm.toFixed(2)),
+        radiusKm: Number(radiusKm.toFixed(2)),
+        candidateCount: candidates.length,
+        method: "minimize_driving_time_gap",
+      },
+    };
+  }
+
   const scoredCandidates = [];
 
   for (const candidate of candidates) {
