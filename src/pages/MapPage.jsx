@@ -61,6 +61,11 @@ const travelModeOptions = [
   { value: "cycling", label: "Cycling" },
 ];
 
+const departureDayOptions = [
+  { value: "today", label: "Today" },
+  { value: "tomorrow", label: "Tomorrow" },
+];
+
 const placePinLabels = {
   coffee: "Cafe",
   cafe: "Cafe",
@@ -143,6 +148,21 @@ const formatPlaceType = (type) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+const buildDepartureDateTime = (day, time) => {
+  if (!time) return null;
+
+  const date = new Date();
+  if (day === "tomorrow") {
+    date.setDate(date.getDate() + 1);
+  }
+
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+
+  date.setHours(hours, minutes, 0, 0);
+  return date.toISOString();
+};
+
 const MapPage = () => {
   const token = localStorage.getItem("token");
   const [friends, setFriends] = useState([]);
@@ -156,6 +176,7 @@ const MapPage = () => {
   const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
   const [selectedPlaceType, setSelectedPlaceType] = useState("all");
   const [travelMode, setTravelMode] = useState("driving");
+  const [departureDay, setDepartureDay] = useState("today");
   const [departureTime, setDepartureTime] = useState("");
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
@@ -681,7 +702,7 @@ const MapPage = () => {
         body: JSON.stringify({
           transportMode: travelMode,
           trafficMode: "current",
-          departureTime: travelMode === "driving" ? departureTime || null : null,
+          departureTime: travelMode === "driving" ? buildDepartureDateTime(departureDay, departureTime) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -784,7 +805,7 @@ const MapPage = () => {
           },
           transportMode: travelMode,
           trafficMode: "current",
-          departureTime: travelMode === "driving" ? departureTime || null : null,
+          departureTime: travelMode === "driving" ? buildDepartureDateTime(departureDay, departureTime) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -873,19 +894,39 @@ const MapPage = () => {
           </label>
           <label htmlFor="departure-time">
             Depart at
-            <input
-              id="departure-time"
-              type="datetime-local"
-              value={departureTime}
-              onChange={(event) => {
-                setDepartureTime(event.target.value);
-                setMeetingPoint(null);
-                setCalculatedMeetingPoint(null);
-                setPlaceSearchRadiusMeters(null);
-                setCoffeeShops([]);
-              }}
-              disabled={travelMode !== "driving"}
-            />
+            <span className="depart-control">
+              <select
+                id="departure-day"
+                value={departureDay}
+                onChange={(event) => {
+                  setDepartureDay(event.target.value);
+                  setMeetingPoint(null);
+                  setCalculatedMeetingPoint(null);
+                  setPlaceSearchRadiusMeters(null);
+                  setCoffeeShops([]);
+                }}
+                disabled={travelMode !== "driving"}
+              >
+                {departureDayOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                id="departure-time"
+                type="time"
+                value={departureTime}
+                onChange={(event) => {
+                  setDepartureTime(event.target.value);
+                  setMeetingPoint(null);
+                  setCalculatedMeetingPoint(null);
+                  setPlaceSearchRadiusMeters(null);
+                  setCoffeeShops([]);
+                }}
+                disabled={travelMode !== "driving"}
+              />
+            </span>
           </label>
           <label htmlFor="place-type">
             Search for

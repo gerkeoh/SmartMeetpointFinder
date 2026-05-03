@@ -310,6 +310,75 @@ function sampleRouteCandidates(routeCoordinates, fallbackCenter) {
   return candidates;
 }
 
+function routePointAtDistance(routeCoordinates, distances, targetDistanceMeters) {
+  if (!routeCoordinates?.length || !distances?.length) return null;
+
+  const total = distances[distances.length - 1];
+  const clampedTarget = Math.max(0, Math.min(targetDistanceMeters, total));
+  const index = distances.findIndex((distance) => distance >= clampedTarget);
+  const safeIndex = index === -1 ? distances.length - 1 : Math.max(1, index);
+  const segmentStart = routeCoordinates[safeIndex - 1];
+  const segmentEnd = routeCoordinates[safeIndex];
+  const segmentDistance = distances[safeIndex] - distances[safeIndex - 1] || 1;
+  const ratio = (clampedTarget - distances[safeIndex - 1]) / segmentDistance;
+
+  return {
+    point: interpolatePoint(segmentStart, segmentEnd, ratio),
+    index: safeIndex,
+    ratio,
+  };
+}
+
+function splitRouteAtDistance(routeCoordinates, targetDistanceMeters) {
+  const distances = cumulativeDistances(routeCoordinates);
+  const totalDistanceMeters = distances[distances.length - 1] || 0;
+  const split = routePointAtDistance(routeCoordinates, distances, targetDistanceMeters);
+
+  if (!split || !totalDistanceMeters) return null;
+
+  const firstSide = [
+    ...routeCoordinates.slice(0, split.index),
+    [split.point.lat, split.point.lng],
+  ];
+  const secondSide = [
+    [split.point.lat, split.point.lng],
+    ...routeCoordinates.slice(split.index),
+  ];
+
+  return {
+    point: split.point,
+    totalDistanceMeters,
+    firstSide,
+    secondSide,
+  };
+}
+
+function buildTwoPersonHumanRouteResult(participants, route, profile, options) {
+  const routeDistances = cumulativeDistances(route.coordinates);
+  const routeGeometryDistanceMeters = routeDistances[routeDistances.length - 1] || route.distanceMeters;
+  const split = splitRouteAtDistance(route.coordinates, routeGeometryDistanceMeters / 2);
+  if (!split) return null;
+
+  const halfDistanceKm = split.totalDistanceMeters / 2 / 1000;
+  const durationMinutes = (halfDistanceKm / profile.fallbackSpeedKmh) * 60;
+  const firstRoute = {
+    userId: participants[0].userId,
+    durationMinutes,
+    distanceKm: halfDistanceKm,
+    coordinates: split.firstSide,
+    source: route.source,
+  };
+  const secondRoute = {
+    userId: participants[1].userId,
+    durationMinutes,
+    distanceKm: halfDistanceKm,
+    coordinates: split.secondSide.reverse(),
+    source: route.source,
+  };
+
+  return buildMeetingPointResult(split.point, [firstRoute, secondRoute], options);
+}
+
 function scoreTravelTimes(travelTimes) {
   const maxTime = Math.max(...travelTimes);
   const minTime = Math.min(...travelTimes);
@@ -469,6 +538,41 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
     );
   } catch (error) {
     routeBetweenFarthest = fallbackRoute(farthestPair.a, farthestPair.b, profile);
+  }
+
+  if (participants.length === 2 && transportMode !== "driving") {
+    const twoPersonResult = buildTwoPersonHumanRouteResult(participants, routeBetweenFarthest, profile, {
+      transportMode,
+      trafficMode,
+      departureTime,
+      radiusKm: Number(radiusKm.toFixed(2)),
+      radiusMeters: Math.round(radiusKm * 1000),
+    });
+
+    if (twoPersonResult) {
+      return {
+        ...twoPersonResult,
+        metrics: {
+          ...twoPersonResult.metrics,
+          routeDistanceKm: Number((routeBetweenFarthest.distanceMeters / 1000).toFixed(2)),
+          lineDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
+        },
+        debug: {
+          farthestPair: {
+            a: farthestPair.a.userId,
+            b: farthestPair.b.userId,
+          },
+          center: twoPersonResult.meetingPoint,
+          geographicCenter,
+          totalDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
+          routeDistanceKm: Number((routeBetweenFarthest.distanceMeters / 1000).toFixed(2)),
+          diameterKm: Number(diameterKm.toFixed(2)),
+          radiusKm: Number(radiusKm.toFixed(2)),
+          candidateCount: 1,
+          method: "halfway_along_route",
+        },
+      };
+    }
   }
 
   const candidates = sampleRouteCandidates(routeBetweenFarthest.coordinates, geographicCenter);

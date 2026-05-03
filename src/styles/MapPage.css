@@ -467,7 +467,7 @@
 
 .place-search-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.75rem;
   margin-top: 0.25rem;
 }
@@ -501,6 +501,18 @@
 .place-search-controls input:disabled {
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+.depart-control {
+  display: grid;
+  grid-template-columns: minmax(86px, 0.9fr) minmax(92px, 1fr);
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.depart-control select,
+.depart-control input {
+  min-width: 0;
 }
 
 .save-meetup-button,
