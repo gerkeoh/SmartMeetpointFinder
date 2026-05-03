@@ -11,6 +11,7 @@ const MEETUPS = "meetups";
 const PARTICIPANTS = "participants";
 const INVITATIONS = "meetupInvitations";
 const MESSAGES = "meetupMessages";
+const DIRECT_MESSAGES = "directMessages";
 const CONNECTIONS = "connections";
 const USERS = "users";
 
@@ -32,6 +33,7 @@ async function ensureIndexes() {
   await db.collection(INVITATIONS).createIndex({ meetupId: 1, invitedUserId: 1 }, { unique: true });
   await db.collection(INVITATIONS).createIndex({ invitedUserId: 1, status: 1, createdAt: -1 });
   await db.collection(MESSAGES).createIndex({ meetupId: 1, createdAt: 1 });
+  await db.collection(DIRECT_MESSAGES).createIndex({ conversationKey: 1, createdAt: 1 });
 }
 ensureIndexes().catch(console.error);
 
@@ -43,6 +45,10 @@ function getMeetupLookup(meetupId) {
 
 async function getMeetupParticipant(meetupId, userId) {
   return db.collection(PARTICIPANTS).findOne({ meetupId, userId });
+}
+
+function getConversationKey(userId, otherUserId) {
+  return [userId.toString(), otherUserId.toString()].sort().join(":");
 }
 
 router.get("/meetups", requireAuth, async (req, res) => {
@@ -424,6 +430,103 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
     );
 
     return res.status(200).json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.get("/direct-messages/:userId", requireAuth, async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ message: "Invalid user id." });
+    }
+
+    const userId = new ObjectId(req.user.id);
+    const otherUserId = new ObjectId(req.params.userId);
+
+    if (userId.equals(otherUserId)) {
+      return res.status(400).json({ message: "Choose another user to chat with." });
+    }
+
+    const otherUser = await db
+      .collection(USERS)
+      .findOne({ _id: otherUserId }, { projection: { username: 1, email: 1 } });
+    if (!otherUser) return res.status(404).json({ message: "User not found." });
+
+    const conversationKey = getConversationKey(userId, otherUserId);
+    const messages = await db
+      .collection(DIRECT_MESSAGES)
+      .find({ conversationKey })
+      .sort({ createdAt: 1 })
+      .limit(100)
+      .toArray();
+
+    return res.status(200).json({
+      contact: {
+        id: otherUser._id.toString(),
+        username: otherUser.username || "User",
+        email: otherUser.email || "",
+      },
+      messages: messages.map((message) => ({
+        id: message._id.toString(),
+        senderId: message.senderId.toString(),
+        senderUsername: message.senderId.equals(userId) ? req.user.username || "You" : otherUser.username || "User",
+        isCurrentUser: message.senderId.equals(userId),
+        text: message.text,
+        createdAt: message.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
+router.post("/direct-messages/:userId", requireAuth, async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ message: "Invalid user id." });
+    }
+
+    const userId = new ObjectId(req.user.id);
+    const otherUserId = new ObjectId(req.params.userId);
+    const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+
+    if (userId.equals(otherUserId)) {
+      return res.status(400).json({ message: "Choose another user to chat with." });
+    }
+
+    if (!text) {
+      return res.status(400).json({ message: "Message cannot be empty." });
+    }
+
+    const otherUser = await db
+      .collection(USERS)
+      .findOne({ _id: otherUserId }, { projection: { username: 1 } });
+    if (!otherUser) return res.status(404).json({ message: "User not found." });
+
+    const now = new Date();
+    const messageText = text.slice(0, 500);
+    const result = await db.collection(DIRECT_MESSAGES).insertOne({
+      conversationKey: getConversationKey(userId, otherUserId),
+      participantIds: [userId, otherUserId],
+      senderId: userId,
+      recipientId: otherUserId,
+      text: messageText,
+      createdAt: now,
+    });
+
+    return res.status(201).json({
+      message: {
+        id: result.insertedId.toString(),
+        senderId: userId.toString(),
+        senderUsername: req.user.username || "You",
+        isCurrentUser: true,
+        text: messageText,
+        createdAt: now,
+      },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Server error." });

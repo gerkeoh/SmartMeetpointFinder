@@ -282,6 +282,31 @@
   font-weight: 700;
 }
 
+.chat-contact-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.chat-contact-button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #475569;
+  border-radius: 9999px;
+  background: #111827;
+  color: #d9d9d9;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-contact-button:hover,
+.chat-contact-button.active {
+  border-color: #f97316;
+  color: #f8fafc;
+}
+
 .message-list {
   display: grid;
   gap: 0.65rem;
@@ -504,7 +529,7 @@
 
 .previous-meetups-panel {
   margin-top: 1.5rem;
-  padding: 1.4rem 1.6rem;
+  padding: 1rem;
   background: #222;
   border: 1px solid #f97316;
   border-radius: 8px;
@@ -516,24 +541,53 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.previous-meetups-header h3 {
-  margin: 0 0 0.35rem;
-  color: #f8fafc;
-  font-size: 1.2rem;
-}
-
-.previous-meetups-panel p {
-  margin: 0;
-  color: #d9d9d9;
-  line-height: 1.6;
+  margin-bottom: 0;
 }
 
 .previous-meetups-list {
   display: grid;
   gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.previous-meetups-toggle {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #111827;
+  color: #d9d9d9;
+  cursor: pointer;
+  text-align: left;
+}
+
+.previous-meetups-toggle:hover {
+  border-color: #f97316;
+}
+
+.previous-meetups-toggle span {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.previous-meetups-toggle strong {
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.previous-meetups-toggle small {
+  color: #cbd5e1;
+}
+
+.previous-meetups-toggle b {
+  flex: 0 0 auto;
+  color: #f8fafc;
 }
 
 .previous-meetup-row {

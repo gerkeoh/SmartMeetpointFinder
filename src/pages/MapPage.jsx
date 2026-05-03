@@ -103,7 +103,9 @@ const MapPage = () => {
   const [invitations, setInvitations] = useState([]);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
+  const [activeChatUser, setActiveChatUser] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [previousMeetupsOpen, setPreviousMeetupsOpen] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [savingMeetup, setSavingMeetup] = useState(false);
   const [loadingCoffee, setLoadingCoffee] = useState(false);
@@ -229,12 +231,38 @@ const MapPage = () => {
     return formatDistance((meetingPoint.radiusMeters || 500) * 2);
   }, [meetingPoint]);
 
-  const canChat = Boolean(meetupId && participants.length > 0);
+  const chatContacts = useMemo(() => {
+    const contacts = new Map();
+
+    participants
+      .filter((participant) => !participant.isCurrentUser)
+      .forEach((participant) => {
+        contacts.set(participant.userId, {
+          id: participant.userId,
+          name: participant.username || "Friend",
+        });
+      });
+
+    selectedFriendIds.forEach((friendId) => {
+      const friend = friends.find((friendItem) => friendItem.id === friendId);
+      if (friend) {
+        contacts.set(friend.id, { id: friend.id, name: friend.username || "Friend" });
+      }
+    });
+
+    return Array.from(contacts.values());
+  }, [friends, participants, selectedFriendIds]);
+
+  const hasDirectChat = Boolean(activeChatUser);
 
   const toggleFriend = (friendId) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
-    );
+    const friend = friends.find((friendItem) => friendItem.id === friendId);
+
+    setSelectedFriendIds((prev) => {
+      if (prev.includes(friendId)) return prev.filter((id) => id !== friendId);
+      if (friend) setActiveChatUser({ id: friend.id, name: friend.username || "Friend" });
+      return [...prev, friendId];
+    });
   };
 
   const getMyLocation = () => {
@@ -281,6 +309,7 @@ const MapPage = () => {
       }
 
       const meetupParticipants = data.participants || [];
+      const firstChatParticipant = meetupParticipants.find((participant) => !participant.isCurrentUser);
       const others = meetupParticipants
         .filter((participant) => participant.location && !participant.isCurrentUser)
         .map((participant) => ({
@@ -298,6 +327,14 @@ const MapPage = () => {
       setMeetingPoint(data.suggestedMeetingPoint || null);
       setTitle(data.meetup?.title || title);
       setCoffeeShops([]);
+      setActiveChatUser(
+        firstChatParticipant
+          ? {
+              id: firstChatParticipant.userId,
+              name: firstChatParticipant.username || "Friend",
+            }
+          : activeChatUser
+      );
 
       if (me?.location) {
         setMyLocation({ lat: me.location.lat, lng: me.location.lng });
@@ -311,14 +348,14 @@ const MapPage = () => {
     }
   };
 
-  const loadMessages = async (id = meetupId) => {
-    if (!token || !id) {
+  const loadMessages = async (contactId = activeChatUser?.id) => {
+    if (!token || !contactId) {
       setMessages([]);
       return;
     }
 
     try {
-      const res = await fetch(apiUrl(`/api/meetups/${id}/messages`), { headers: authHeaders });
+      const res = await fetch(apiUrl(`/api/direct-messages/${contactId}`), { headers: authHeaders });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) return;
@@ -329,17 +366,17 @@ const MapPage = () => {
   };
 
   useEffect(() => {
-    if (!canChat) {
+    if (!hasDirectChat) {
       setMessages([]);
       return undefined;
     }
 
-    loadMessages(meetupId);
-    const intervalId = window.setInterval(() => loadMessages(meetupId), 5000);
+    loadMessages(activeChatUser.id);
+    const intervalId = window.setInterval(() => loadMessages(activeChatUser.id), 5000);
 
     return () => window.clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canChat, meetupId, authHeaders]);
+  }, [hasDirectChat, activeChatUser?.id, authHeaders]);
 
   const acceptInvitation = async (invitationId) => {
     if (!token) {
@@ -365,9 +402,8 @@ const MapPage = () => {
       setMeetupId(data.meetupId);
       await loadInvitations();
       await loadMeetup(data.meetupId);
-      await loadMessages(data.meetupId);
       await loadPreviousMeetups();
-      setStatus("Invitation accepted. Meetup chat is open.");
+      setStatus("Invitation accepted. Direct chat is open.");
     } catch (error) {
       setStatus("Something went wrong while accepting the invitation.");
     } finally {
@@ -379,11 +415,11 @@ const MapPage = () => {
     event.preventDefault();
 
     const text = messageText.trim();
-    if (!text || !meetupId) return;
+    if (!text || !activeChatUser) return;
 
     try {
       setSendingMessage(true);
-      const res = await fetch(apiUrl(`/api/meetups/${meetupId}/messages`), {
+      const res = await fetch(apiUrl(`/api/direct-messages/${activeChatUser.id}`), {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({ text }),
@@ -461,7 +497,6 @@ const MapPage = () => {
 
       setStatus("Meetup created. Invitations have been sent.");
       await loadMeetup(newMeetupId);
-      await loadMessages(newMeetupId);
       await loadPreviousMeetups();
     } catch (error) {
       setStatus("Something went wrong while creating the meetup.");
@@ -741,14 +776,28 @@ const MapPage = () => {
           </div>
         </div>
 
-        {canChat && (
+        {hasDirectChat && (
           <div className="chat-panel">
             <div className="chat-panel-header">
-              <h3>Meetup Chat</h3>
+              <h3>Direct Chat</h3>
               <span>
-                {messages.length} message{messages.length === 1 ? "" : "s"}
+                {activeChatUser.name}
               </span>
             </div>
+            {chatContacts.length > 1 && (
+              <div className="chat-contact-list">
+                {chatContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    type="button"
+                    className={`chat-contact-button${activeChatUser.id === contact.id ? " active" : ""}`}
+                    onClick={() => setActiveChatUser(contact)}
+                  >
+                    {contact.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="message-list">
               {messages.length === 0 ? (
                 <p>No messages yet.</p>
@@ -769,7 +818,7 @@ const MapPage = () => {
                 type="text"
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
-                placeholder="Type a message"
+                placeholder={`Message ${activeChatUser.name}`}
                 maxLength={500}
               />
               <button type="submit" className="save-meetup-button" disabled={sendingMessage || !messageText.trim()}>
@@ -860,10 +909,19 @@ const MapPage = () => {
 
       <div className="previous-meetups-panel">
         <div className="previous-meetups-header">
-          <div>
-            <h3>Previous Meetups</h3>
-            <p>Open a meetup you created or joined.</p>
-          </div>
+          <button
+            type="button"
+            className="previous-meetups-toggle"
+            onClick={() => setPreviousMeetupsOpen((open) => !open)}
+          >
+            <span>
+              <strong>Previous Meetups</strong>
+              <small>
+                {previousMeetups.length} meetup{previousMeetups.length === 1 ? "" : "s"}
+              </small>
+            </span>
+            <b>{previousMeetupsOpen ? "Hide" : "Show"}</b>
+          </button>
           <button
             type="button"
             className="clear-meetup-button compact-action-button"
@@ -874,26 +932,27 @@ const MapPage = () => {
           </button>
         </div>
 
-        {previousMeetups.length === 0 ? (
-          <p>No previous meetups yet.</p>
-        ) : (
-          <div className="previous-meetups-list">
-            {previousMeetups.map((meetup) => (
-              <button
-                key={meetup.id}
-                type="button"
-                className={`previous-meetup-row${meetupId === meetup.id ? " active" : ""}`}
-                onClick={() => loadMeetup(meetup.id)}
-              >
-                <span>
-                  <strong>{meetup.title || "Untitled meetup"}</strong>
-                  <small>{meetup.status?.replace(/_/g, " ") || "created"}</small>
-                </span>
-                <b>{meetup.participantIds?.length || 0}</b>
-              </button>
-            ))}
-          </div>
-        )}
+        {previousMeetupsOpen &&
+          (previousMeetups.length === 0 ? (
+            <p>No previous meetups yet.</p>
+          ) : (
+            <div className="previous-meetups-list">
+              {previousMeetups.map((meetup) => (
+                <button
+                  key={meetup.id}
+                  type="button"
+                  className={`previous-meetup-row${meetupId === meetup.id ? " active" : ""}`}
+                  onClick={() => loadMeetup(meetup.id)}
+                >
+                  <span>
+                    <strong>{meetup.title || "Untitled meetup"}</strong>
+                    <small>{meetup.status?.replace(/_/g, " ") || "created"}</small>
+                  </span>
+                  <b>{meetup.participantIds?.length || 0}</b>
+                </button>
+              ))}
+            </div>
+          ))}
       </div>
     </div>
   );
