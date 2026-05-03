@@ -36,7 +36,7 @@ const meetingIcon = L.divIcon({
 
 const coffeeIcon = L.divIcon({
   className: "custom-pin",
-  html: '<div class="pin coffee-pin"><span class="pin-text">Cafe</span></div>',
+  html: '<div class="pin coffee-pin"><span class="pin-text">Place</span></div>',
   iconSize: [48, 48],
   iconAnchor: [24, 48],
 });
@@ -81,6 +81,11 @@ const formatDistance = (meters) => {
 
   return `${(meters / metersInKilometer).toFixed(1)} km`;
 };
+
+const formatPlaceType = (type) =>
+  (type || "place")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 const MapPage = () => {
   const token = localStorage.getItem("token");
@@ -421,8 +426,8 @@ const MapPage = () => {
       setCoffeeShops(shops);
       setStatus(
         shops.length
-          ? `${shops.length} coffee shop${shops.length === 1 ? "" : "s"} loaded inside the ${meetingDiameterLabel} diameter.`
-          : `No coffee shops found inside the ${meetingDiameterLabel} diameter.`
+          ? `${shops.length} place${shops.length === 1 ? "" : "s"} loaded inside the ${meetingDiameterLabel} diameter.`
+          : `No places found inside the ${meetingDiameterLabel} diameter.`
       );
     } catch (error) {
       setStatus("Could not find coffee shops.");
@@ -476,7 +481,7 @@ const MapPage = () => {
             Refresh
           </button>
           <button type="button" className="clear-meetup-button" onClick={findCoffeeShops} disabled={!meetingPoint || loadingCoffee}>
-            {loadingCoffee ? "Finding..." : "Find Coffee Shops"}
+            {loadingCoffee ? "Finding..." : "Find Places"}
           </button>
         </div>
 
@@ -531,6 +536,30 @@ const MapPage = () => {
                   </span>
                 </div>
               ))
+            )}
+          </div>
+
+          <div className="places-panel">
+            <div className="places-panel-header">
+              <h3>Places In Meet Radius</h3>
+              <span>{coffeeShops.length}</span>
+            </div>
+            {coffeeShops.length === 0 ? (
+              <p>No places loaded.</p>
+            ) : (
+              <div className="places-list">
+                {coffeeShops.map((shop) => (
+                  <div key={shop.id} className="place-row">
+                    <span>
+                      <strong>{shop.name}</strong>
+                      <small>{formatPlaceType(shop.type)}</small>
+                    </span>
+                    {typeof shop.distanceMeters === "number" && (
+                      <b>{formatDistance(shop.distanceMeters)}</b>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -606,6 +635,8 @@ const MapPage = () => {
                     {formatDistance(shop.distanceMeters)} from meeting point
                   </>
                 )}
+                <br />
+                {formatPlaceType(shop.type)}
               </Popup>
             </Marker>
           ))}

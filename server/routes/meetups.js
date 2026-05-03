@@ -346,6 +346,18 @@ router.get("/coffee-shops", async (req, res) => {
         node["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
         way["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
         relation["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
+        node["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
+        way["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
+        relation["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
+        node["amenity"="pub"](around:${radiusMeters},${lat},${lng});
+        way["amenity"="pub"](around:${radiusMeters},${lat},${lng});
+        relation["amenity"="pub"](around:${radiusMeters},${lat},${lng});
+        node["amenity"="bar"](around:${radiusMeters},${lat},${lng});
+        way["amenity"="bar"](around:${radiusMeters},${lat},${lng});
+        relation["amenity"="bar"](around:${radiusMeters},${lat},${lng});
+        node["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
+        way["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
+        relation["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
         node["shop"="coffee"](around:${radiusMeters},${lat},${lng});
         way["shop"="coffee"](around:${radiusMeters},${lat},${lng});
         relation["shop"="coffee"](around:${radiusMeters},${lat},${lng});
@@ -380,26 +392,32 @@ router.get("/coffee-shops", async (req, res) => {
         }
 
         const data = await response.json();
-        const shops = (data.elements || [])
-        .map((element) => {
-          const shopLat = element.lat ?? element.center?.lat;
-          const shopLng = element.lon ?? element.center?.lon;
-          if (typeof shopLat !== "number" || typeof shopLng !== "number") return null;
+        const placesById = new Map();
 
-          const distanceFromMeetingPointMeters = distanceMeters(shopLat, shopLng);
-          if (distanceFromMeetingPointMeters > radiusMeters) return null;
+        (data.elements || [])
+          .map((element) => {
+            const shopLat = element.lat ?? element.center?.lat;
+            const shopLng = element.lon ?? element.center?.lon;
+            if (typeof shopLat !== "number" || typeof shopLng !== "number") return null;
 
-          return {
-            id: `${element.type}-${element.id}`,
-            name: element.tags?.name || "Coffee Shop",
-            type: element.tags?.amenity || element.tags?.shop || "coffee",
-            lat: shopLat,
-            lng: shopLng,
-            distanceMeters: Math.round(distanceFromMeetingPointMeters),
-          };
-        })
+            const distanceFromMeetingPointMeters = distanceMeters(shopLat, shopLng);
+            if (distanceFromMeetingPointMeters > radiusMeters) return null;
+
+            return {
+              id: `${element.type}-${element.id}`,
+              name: element.tags?.name || "Place",
+              type: element.tags?.amenity || element.tags?.shop || "place",
+              lat: shopLat,
+              lng: shopLng,
+              distanceMeters: Math.round(distanceFromMeetingPointMeters),
+            };
+          })
           .filter(Boolean)
-          .sort((a, b) => a.distanceMeters - b.distanceMeters);
+          .forEach((place) => placesById.set(place.id, place));
+
+        const shops = Array.from(placesById.values()).sort(
+          (a, b) => a.distanceMeters - b.distanceMeters
+        );
 
         return res.status(200).json({ shops });
       } catch (error) {
