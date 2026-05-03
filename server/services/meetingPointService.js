@@ -2,6 +2,8 @@ const EARTH_RADIUS_KM = 6371;
 const OSRM_BASE_URL = "https://router.project-osrm.org";
 const ROUTE_TIMEOUT_MS = 9000;
 const CANDIDATE_COUNT = 25;
+const DRIVING_REFINE_STEPS = 10;
+const DRIVING_REFINE_PASSES = 3;
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 const toDeg = (rad) => (rad * 180) / Math.PI;
@@ -441,30 +443,103 @@ async function calculateParticipantRoutes(participants, destination, profile, tr
   );
 }
 
-async function findBestTwoPersonTimeBalance(participants, candidates, profile, trafficMode, departureTime) {
-  const scoredCandidates = [];
+async function scoreCandidateAtRouteDistance(
+  participants,
+  routeCoordinates,
+  routeDistances,
+  targetDistanceMeters,
+  profile,
+  trafficMode,
+  departureTime
+) {
+  const split = routePointAtDistance(routeCoordinates, routeDistances, targetDistanceMeters);
+  if (!split) return null;
 
-  for (const candidate of candidates) {
-    const participantRoutes = await calculateParticipantRoutes(
+  const participantRoutes = await calculateParticipantRoutes(
+    participants,
+    split.point,
+    profile,
+    trafficMode,
+    departureTime
+  );
+  const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
+  const scored = scoreTravelTimes(travelMinutes);
+
+  return {
+    candidate: split.point,
+    targetDistanceMeters,
+    participantRoutes,
+    travelMinutes,
+    ...scored,
+  };
+}
+
+async function findBestTwoPersonDrivingBalance(
+  participants,
+  routeBetweenFarthest,
+  profile,
+  trafficMode,
+  departureTime
+) {
+  const routeCoordinates = routeBetweenFarthest.coordinates || [];
+  const routeDistances = cumulativeDistances(routeCoordinates);
+  const totalDistanceMeters = routeDistances[routeDistances.length - 1] || 0;
+
+  if (routeCoordinates.length < 2 || !totalDistanceMeters) {
+    const fallbackCandidate = midpoint(participants[0], participants[1]);
+    const fallbackRoutes = await calculateParticipantRoutes(
       participants,
-      candidate,
+      fallbackCandidate,
       profile,
       trafficMode,
       departureTime
     );
-    const travelMinutes = participantRoutes.map((route) => route.durationMinutes);
-    const scored = scoreTravelTimes(travelMinutes);
+    const travelMinutes = fallbackRoutes.map((route) => route.durationMinutes);
 
-    scoredCandidates.push({
-      candidate,
-      participantRoutes,
+    return {
+      candidate: fallbackCandidate,
+      targetDistanceMeters: totalDistanceMeters / 2,
+      participantRoutes: fallbackRoutes,
       travelMinutes,
-      ...scored,
-    });
+      ...scoreTravelTimes(travelMinutes),
+    };
   }
 
-  scoredCandidates.sort((a, b) => a.spreadPenalty - b.spreadPenalty || a.avgTime - b.avgTime);
-  return scoredCandidates[0];
+  let lowerBound = 0;
+  let upperBound = totalDistanceMeters;
+  let best = null;
+
+  for (let pass = 0; pass <= DRIVING_REFINE_PASSES; pass += 1) {
+    const stepSize = (upperBound - lowerBound) / (DRIVING_REFINE_STEPS + 1);
+    const scoredCandidates = [];
+
+    for (let i = 1; i <= DRIVING_REFINE_STEPS; i += 1) {
+      const targetDistanceMeters = lowerBound + stepSize * i;
+      const scored = await scoreCandidateAtRouteDistance(
+        participants,
+        routeCoordinates,
+        routeDistances,
+        targetDistanceMeters,
+        profile,
+        trafficMode,
+        departureTime
+      );
+      if (scored) scoredCandidates.push(scored);
+    }
+
+    if (!scoredCandidates.length) break;
+
+    scoredCandidates.sort((a, b) => a.spreadPenalty - b.spreadPenalty || a.avgTime - b.avgTime);
+    best = !best || scoredCandidates[0].spreadPenalty < best.spreadPenalty ? scoredCandidates[0] : best;
+
+    const bestIndexTarget = scoredCandidates[0].targetDistanceMeters;
+    lowerBound = Math.max(0, bestIndexTarget - stepSize);
+    upperBound = Math.min(totalDistanceMeters, bestIndexTarget + stepSize);
+
+    if (best.spreadPenalty <= 0.5) break;
+  }
+
+  return best;
 }
 
 function buildMeetingPointResult(destination, participantRoutes, options = {}) {
@@ -606,9 +681,9 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
   const candidates = sampleRouteCandidates(routeBetweenFarthest.coordinates, geographicCenter);
 
   if (participants.length === 2 && transportMode === "driving") {
-    const bestDrivingBalance = await findBestTwoPersonTimeBalance(
+    const bestDrivingBalance = await findBestTwoPersonDrivingBalance(
       participants,
-      candidates,
+      routeBetweenFarthest,
       profile,
       trafficMode,
       departureTime
@@ -656,7 +731,7 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
         diameterKm: Number(diameterKm.toFixed(2)),
         radiusKm: Number(radiusKm.toFixed(2)),
         candidateCount: candidates.length,
-        method: "minimize_driving_time_gap",
+        method: "refined_minimize_driving_time_gap",
       },
     };
   }
