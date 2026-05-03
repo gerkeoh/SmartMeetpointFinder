@@ -161,6 +161,12 @@ const MapPage = () => {
     }));
   }, [myLocation, friendLocations, meetingPoint]);
 
+  const meetingDiameterLabel = useMemo(() => {
+    if (!meetingPoint) return "";
+
+    return formatDistance((meetingPoint.radiusMeters || 500) * 2);
+  }, [meetingPoint]);
+
   const toggleFriend = (friendId) => {
     setSelectedFriendIds((prev) =>
       prev.includes(friendId) ? prev.filter((id) => id !== friendId) : [...prev, friendId]
@@ -562,7 +568,11 @@ const MapPage = () => {
                 center={[meetingPoint.lat, meetingPoint.lng]}
                 radius={meetingPoint.radiusMeters || 500}
                 pathOptions={{ className: "meeting-radius" }}
-              />
+              >
+                <Tooltip className="line-tooltip" permanent>
+                  Diameter: {meetingDiameterLabel}
+                </Tooltip>
+              </Circle>
             </>
           )}
 
