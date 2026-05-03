@@ -407,7 +407,7 @@ const MapPage = () => {
 
     try {
       setLoadingCoffee(true);
-      setStatus("Finding coffee shops...");
+      setStatus("Finding places...");
 
       const radiusMeters = meetingPoint.radiusMeters || 1500;
       const res = await fetch(
@@ -418,7 +418,7 @@ const MapPage = () => {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setStatus(data.message || "Could not find coffee shops.");
+        setStatus(data.message || "Could not find places.");
         return;
       }
 
@@ -430,7 +430,7 @@ const MapPage = () => {
           : `No places found inside the ${meetingDiameterLabel} diameter.`
       );
     } catch (error) {
-      setStatus("Could not find coffee shops.");
+      setStatus("Could not reach the place search. Check that the backend is running.");
     } finally {
       setLoadingCoffee(false);
     }

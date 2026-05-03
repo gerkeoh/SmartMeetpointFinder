@@ -343,27 +343,9 @@ router.get("/coffee-shops", async (req, res) => {
     const query = `
       [out:json][timeout:25];
       (
-        node["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
-        way["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
-        relation["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
-        way["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
-        relation["amenity"="restaurant"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="pub"](around:${radiusMeters},${lat},${lng});
-        way["amenity"="pub"](around:${radiusMeters},${lat},${lng});
-        relation["amenity"="pub"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="bar"](around:${radiusMeters},${lat},${lng});
-        way["amenity"="bar"](around:${radiusMeters},${lat},${lng});
-        relation["amenity"="bar"](around:${radiusMeters},${lat},${lng});
-        node["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
-        way["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
-        relation["amenity"="fast_food"](around:${radiusMeters},${lat},${lng});
-        node["shop"="coffee"](around:${radiusMeters},${lat},${lng});
-        way["shop"="coffee"](around:${radiusMeters},${lat},${lng});
-        relation["shop"="coffee"](around:${radiusMeters},${lat},${lng});
-        node["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
-        way["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
-        relation["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
+        nwr["amenity"~"^(cafe|restaurant|pub|bar|fast_food)$"](around:${radiusMeters},${lat},${lng});
+        nwr["shop"="coffee"](around:${radiusMeters},${lat},${lng});
+        nwr["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
       );
       out center;
     `;
