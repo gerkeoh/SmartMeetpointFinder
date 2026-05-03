@@ -216,9 +216,9 @@ nav {
 .app-form textarea {
   width: 100%;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #f8fafc;
   font: inherit;
 }
@@ -230,7 +230,7 @@ nav {
 
 .app-form input:focus,
 .app-form textarea:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
@@ -245,9 +245,9 @@ nav {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
 }
 
 .app-list-content {
@@ -262,7 +262,7 @@ nav {
 }
 
 .app-list-content span {
-  color: #cbd5e1;
+  color: #cfcfc8;
   font-size: 0.95rem;
 }
 
@@ -272,9 +272,10 @@ nav {
   justify-content: center;
   min-height: 48px;
   padding: 0.75rem 1.15rem;
-  border: none;
+  border: 2px solid #f97316;
   border-radius: 9999px;
-  color: #f8fafc;
+  background: #222;
+  color: #d9d9d9;
   font: inherit;
   font-weight: 700;
   line-height: 1.1;
@@ -283,25 +284,25 @@ nav {
 }
 
 .app-button-primary {
-  background: #2563eb;
+  background: #222;
 }
 
 .app-button-primary:hover {
-  background: #1d4ed8;
+  background: #f97316;
 }
 
 .app-button-muted {
-  background: #475569;
+  background: #222;
 }
 
 .app-button-muted:hover {
-  background: #334155;
+  background: #f97316;
 }
 
 .app-message {
   margin-top: 1rem !important;
   padding-top: 1rem;
-  border-top: 1px solid #334155;
+  border-top: 1px solid #3a3a34;
   color: #d9d9d9;
   font-weight: 700;
 }
@@ -317,13 +318,13 @@ nav {
   display: grid;
   gap: 0.25rem;
   padding: 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
 }
 
 .profile-summary span {
-  color: #cbd5e1;
+  color: #cfcfc8;
   font-size: 0.9rem;
 }
 

@@ -336,6 +336,33 @@ const MapPage = () => {
   const displayedMeetingRadiusMeters = placeSearchRadiusMeters || meetingPoint?.radiusMeters || 500;
   const currentUserName =
     participants.find((participant) => participant.isCurrentUser)?.username || "You";
+  const routeSummary = useMemo(() => {
+    if (!meetingPoint) return null;
+
+    const routes = Array.isArray(meetingPoint.participantRoutes) ? meetingPoint.participantRoutes : [];
+    const durations = routes
+      .map((route) => route.durationMinutes)
+      .filter((duration) => typeof duration === "number");
+    const distances = routes
+      .map((route) => route.distanceKm)
+      .filter((distance) => typeof distance === "number");
+    const modeLabel =
+      travelModeOptions.find((option) => option.value === meetingPoint.transportMode)?.label ||
+      travelModeOptions.find((option) => option.value === travelMode)?.label ||
+      "Route";
+    const timeGap =
+      durations.length > 1 ? Math.max(...durations) - Math.min(...durations) : null;
+    const totalDistanceKm = distances.reduce((sum, distance) => sum + distance, 0);
+
+    return {
+      title: meetingPoint.selectedPlace?.name || "Calculated meetpoint",
+      modeLabel,
+      routeCount: routes.length,
+      timeGapLabel: typeof timeGap === "number" ? formatDuration(timeGap) : "Not available",
+      totalDistanceLabel: distances.length ? formatDistance(totalDistanceKm * metersInKilometer) : "Not available",
+      isPlacePreview: Boolean(meetingPoint.selectedPlace),
+    };
+  }, [meetingPoint, travelMode]);
 
   const chatContacts = useMemo(() => {
     const contacts = new Map();
@@ -943,6 +970,29 @@ const MapPage = () => {
             Refresh
           </button>
         </div>
+
+        {routeSummary && (
+          <div className="route-summary-card">
+            <div>
+              <span>{routeSummary.isPlacePreview ? "Previewing place" : "Route summary"}</span>
+              <strong>{routeSummary.title}</strong>
+            </div>
+            <dl>
+              <span>
+                <dt>Mode</dt>
+                <dd>{routeSummary.modeLabel}</dd>
+              </span>
+              <span>
+                <dt>Time gap</dt>
+                <dd>{routeSummary.timeGapLabel}</dd>
+              </span>
+              <span>
+                <dt>Total distance</dt>
+                <dd>{routeSummary.totalDistanceLabel}</dd>
+              </span>
+            </dl>
+          </div>
+        )}
 
         <div className="meetup-details-grid">
           <div className="friend-picker-panel">

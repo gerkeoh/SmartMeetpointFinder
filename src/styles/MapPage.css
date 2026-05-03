@@ -55,9 +55,9 @@
 
 .location-button {
   padding: 0.9rem 1.6rem;
-  border: none;
+  border: 2px solid #f97316;
   border-radius: 9999px;
-  background: #2563eb;
+  background: #222;
   color: #d9d9d9;
   font-weight: 600;
   cursor: pointer;
@@ -65,11 +65,11 @@
 }
 
 .location-button:hover {
-  background: #1d4ed8;
+  background: #f97316;
 }
 
 .location-button:disabled {
-  background: #94a3b8;
+  background: #8f968a;
   cursor: not-allowed;
 }
 
@@ -104,7 +104,7 @@
 .meetup-count {
   flex: 0 0 auto;
   padding: 0.45rem 0.7rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 9999px;
   color: #d9d9d9;
   font-size: 0.85rem;
@@ -123,15 +123,15 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #f8fafc;
   font: inherit;
 }
 
 .meetup-title-field input:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
@@ -145,7 +145,7 @@
 .meetup-status-message {
   margin-top: 1rem !important;
   padding-top: 1rem;
-  border-top: 1px solid #334155;
+  border-top: 1px solid #3a3a34;
   color: #d9d9d9;
   font-weight: 700;
 }
@@ -170,9 +170,9 @@
 .chat-panel {
   min-width: 0;
   padding: 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
 }
 
 .participants-panel h3,
@@ -193,7 +193,8 @@
   min-width: 32px;
   padding: 0.25rem 0.55rem;
   border-radius: 9999px;
-  background: #2563eb;
+  background: #222;
+  border: 1px solid #f97316;
   color: #f8fafc;
   font-size: 0.82rem;
   font-weight: 700;
@@ -204,14 +205,14 @@
   display: grid;
   max-height: 220px;
   overflow-y: auto;
-  border-top: 1px solid #334155;
+  border-top: 1px solid #3a3a34;
 }
 
 .participant-row {
   display: grid;
   gap: 0.25rem;
   padding: 0.75rem 0;
-  border-top: 1px solid #334155;
+  border-top: 1px solid #3a3a34;
   color: #d9d9d9;
 }
 
@@ -223,7 +224,7 @@
   gap: 0.75rem;
   padding: 0.75rem 0;
   border: none;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid #3a3a34;
   background: transparent;
   color: #d9d9d9;
   font: inherit;
@@ -236,7 +237,7 @@
 }
 
 .place-row:disabled {
-  color: #94a3b8;
+  color: #8f968a;
   cursor: wait;
 }
 
@@ -252,7 +253,7 @@
 }
 
 .place-row small {
-  color: #cbd5e1;
+  color: #cfcfc8;
 }
 
 .place-row b {
@@ -264,7 +265,7 @@
 .invitation-list {
   display: grid;
   gap: 0.75rem;
-  border-top: 1px solid #334155;
+  border-top: 1px solid #3a3a34;
   padding-top: 0.75rem;
 }
 
@@ -288,7 +289,7 @@
 }
 
 .invitation-row small {
-  color: #cbd5e1;
+  color: #cfcfc8;
 }
 
 .invitation-actions {
@@ -316,7 +317,7 @@
 }
 
 .chat-panel-header span {
-  color: #cbd5e1;
+  color: #cfcfc8;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -330,9 +331,9 @@
 
 .chat-contact-button {
   padding: 0.5rem 0.75rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 9999px;
-  background: #111827;
+  background: #181816;
   color: #d9d9d9;
   font: inherit;
   font-size: 0.9rem;
@@ -352,9 +353,9 @@
   max-height: 260px;
   overflow-y: auto;
   padding: 0.75rem;
-  border: 1px solid #334155;
+  border: 1px solid #3a3a34;
   border-radius: 8px;
-  background: #0b1220;
+  background: #141412;
 }
 
 .message-row {
@@ -364,13 +365,14 @@
   max-width: min(520px, 88%);
   padding: 0.65rem 0.8rem;
   border-radius: 8px;
-  background: #1f2937;
+  background: #2a2a24;
   color: #d9d9d9;
 }
 
 .message-row.own-message {
   justify-self: end;
-  background: #2563eb;
+  background: #222;
+  border: 1px solid #f97316;
   color: #f8fafc;
 }
 
@@ -393,15 +395,15 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #f8fafc;
   font: inherit;
 }
 
 .message-form input:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
@@ -427,16 +429,16 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #f8fafc;
   text-align: left;
   cursor: pointer;
 }
 
 .friend-choice:hover {
-  border-color: #2563eb;
+  border-color: #f97316;
 }
 
 .friend-choice.selected {
@@ -456,7 +458,7 @@
 }
 
 .friend-choice small {
-  color: #cbd5e1;
+  color: #cfcfc8;
 }
 
 .friend-choice-status {
@@ -470,6 +472,67 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-top: 1rem;
+}
+
+.route-summary-card {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #4a4a3f;
+  border-left: 4px solid #f97316;
+  border-radius: 8px;
+  background: #181816;
+  color: #d9d9d9;
+}
+
+.route-summary-card > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.route-summary-card > div span {
+  color: #cfcfc8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.route-summary-card > div strong {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.route-summary-card dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.route-summary-card dl span {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: #222;
+}
+
+.route-summary-card dt,
+.route-summary-card dd {
+  margin: 0;
+}
+
+.route-summary-card dt {
+  color: #cfcfc8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.route-summary-card dd {
+  color: #f8fafc;
+  font-weight: 800;
 }
 
 .place-search-controls {
@@ -508,22 +571,22 @@
   width: 100%;
   box-sizing: border-box;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #f8fafc;
   font: inherit;
 }
 
 .place-search-controls select:focus,
 .place-search-controls input:focus {
-  outline: 2px solid #2563eb;
+  outline: 2px solid #f97316;
   outline-offset: 2px;
 }
 
 .place-search-controls select:disabled,
 .place-search-controls input:disabled {
-  color: #94a3b8;
+  color: #8f968a;
   cursor: not-allowed;
 }
 
@@ -537,32 +600,33 @@
 .save-meetup-button,
 .clear-meetup-button {
   padding: 0.85rem 1.25rem;
-  border: none;
+  border: 2px solid #f97316;
   border-radius: 9999px;
-  color: #f8fafc;
+  background: #222;
+  color: #d9d9d9;
   font-weight: 700;
   cursor: pointer;
 }
 
 .save-meetup-button {
-  background: #2563eb;
+  background: #222;
 }
 
 .save-meetup-button:hover {
-  background: #1d4ed8;
+  background: #f97316;
 }
 
 .clear-meetup-button {
-  background: #475569;
+  background: #222;
 }
 
 .clear-meetup-button:hover {
-  background: #334155;
+  background: #f97316;
 }
 
 .save-meetup-button:disabled,
 .clear-meetup-button:disabled {
-  background: #94a3b8;
+  background: #8f968a;
   cursor: not-allowed;
 }
 
@@ -595,7 +659,7 @@
   overflow-y: auto;
   margin-top: 0.75rem;
   padding: 0.75rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
   background: #222;
 }
@@ -662,9 +726,9 @@
   gap: 1rem;
   min-width: 0;
   padding: 0.85rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #d9d9d9;
   cursor: pointer;
   text-align: left;
@@ -686,7 +750,7 @@
 }
 
 .previous-meetups-toggle small {
-  color: #cbd5e1;
+  color: #cfcfc8;
 }
 
 .previous-meetups-toggle b {
@@ -701,9 +765,9 @@
   justify-content: space-between;
   gap: 1rem;
   padding: 0.9rem 1rem;
-  border: 1px solid #475569;
+  border: 1px solid #4a4a3f;
   border-radius: 8px;
-  background: #111827;
+  background: #181816;
   color: #d9d9d9;
   cursor: pointer;
   text-align: left;
@@ -726,7 +790,7 @@
 }
 
 .previous-meetup-row small {
-  color: #cbd5e1;
+  color: #cfcfc8;
   text-transform: capitalize;
 }
 
@@ -735,7 +799,8 @@
   min-width: 32px;
   padding: 0.25rem 0.55rem;
   border-radius: 9999px;
-  background: #2563eb;
+  background: #222;
+  border: 1px solid #f97316;
   color: #f8fafc;
   font-size: 0.82rem;
   text-align: center;
@@ -797,7 +862,8 @@
 }
 
 .user-marker-friend {
-  background: #2563eb;
+  background: #222;
+  border-color: #f97316;
 }
 
 .user-marker-dot {
@@ -876,7 +942,7 @@
 }
 
 .place-pin-place {
-  background: #2563eb;
+  background: #222;
 }
 
 .meeting-radius,
@@ -903,17 +969,17 @@
 }
 
 .map-popup-actions span {
-  color: #334155;
+  color: #3a3a34;
   font-size: 0.85rem;
 }
 
 .map-popup-button {
   width: 100%;
   padding: 0.45rem 0.7rem;
-  border: none;
+  border: 2px solid #f97316;
   border-radius: 9999px;
-  background: #475569;
-  color: #f8fafc;
+  background: #222;
+  color: #d9d9d9;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 700;
@@ -921,11 +987,11 @@
 }
 
 .map-popup-button:hover {
-  background: #334155;
+  background: #f97316;
 }
 
 .map-popup-button:disabled {
-  background: #94a3b8;
+  background: #8f968a;
   cursor: not-allowed;
 }
 
@@ -984,3 +1050,4 @@
     width: 100%;
   }
 }
+
