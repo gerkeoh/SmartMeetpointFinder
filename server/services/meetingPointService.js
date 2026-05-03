@@ -78,7 +78,7 @@ function midpoint(a, b) {
   };
 }
 
-function calculateRadiusKm(distanceKm) {
+function calculateDiameterKm(distanceKm) {
   return Math.min(distanceKm * 0.1, 5);
 }
 
@@ -101,7 +101,8 @@ export function calculateBestMeetingPoint(participants, options = {}) {
   const averageSpeedKmh = options.averageSpeedKmh ?? 30;
   const farthestPair = findFarthestParticipantPair(participants);
   const meetingPointLocation = midpoint(farthestPair.a, farthestPair.b);
-  const radiusKm = calculateRadiusKm(farthestPair.distanceKm);
+  const diameterKm = calculateDiameterKm(farthestPair.distanceKm);
+  const radiusKm = diameterKm / 2;
   const travelMinutes = participants.map((participant) =>
     estimateTravelMinutes(participant, meetingPointLocation, averageSpeedKmh)
   );
@@ -131,6 +132,7 @@ export function calculateBestMeetingPoint(participants, options = {}) {
       },
       center: meetingPointLocation,
       totalDistanceKm: Number(farthestPair.distanceKm.toFixed(2)),
+      diameterKm: Number(diameterKm.toFixed(2)),
       radiusKm: Number(radiusKm.toFixed(2)),
     },
   };
