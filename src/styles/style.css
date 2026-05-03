@@ -600,6 +600,7 @@ nav {
   .nav-link {
     flex: 0 0 auto;
     width: 48px;
+    height: 48px;
     min-width: 0;
     min-height: 48px;
     padding: 0;
@@ -612,6 +613,11 @@ nav {
 
   .nav-icon {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    line-height: 0;
   }
 
   .nav-icon svg {
