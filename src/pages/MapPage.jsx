@@ -14,6 +14,8 @@ import { apiUrl } from "../api";
 import "../styles/MapPage.css";
 
 const defaultCenter = [53.3498, -6.2603];
+const metersInKilometer = 1000;
+const earthRadiusMeters = 6371000;
 
 const markerIcon = new L.Icon({
   iconUrl: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -56,6 +58,29 @@ function MapBounds({ points }) {
 
   return null;
 }
+
+const toRadians = (degrees) => (degrees * Math.PI) / 180;
+
+const getDistanceMeters = (start, end) => {
+  const latDelta = toRadians(end.lat - start.lat);
+  const lngDelta = toRadians(end.lng - start.lng);
+  const startLat = toRadians(start.lat);
+  const endLat = toRadians(end.lat);
+
+  const haversine =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(lngDelta / 2) ** 2;
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const formatDistance = (meters) => {
+  if (meters < metersInKilometer) {
+    return `${Math.round(meters)} m`;
+  }
+
+  return `${(meters / metersInKilometer).toFixed(1)} km`;
+};
 
 const MapPage = () => {
   const token = localStorage.getItem("token");
@@ -121,6 +146,20 @@ const MapPage = () => {
     ],
     [myLocation, friendLocations, meetingPoint, coffeeShops]
   );
+
+  const travelLines = useMemo(() => {
+    if (!meetingPoint) return [];
+
+    const locations = [
+      ...(myLocation ? [{ ...myLocation, id: "current-user", name: "You" }] : []),
+      ...friendLocations,
+    ];
+
+    return locations.map((point) => ({
+      ...point,
+      distanceLabel: formatDistance(getDistanceMeters(point, meetingPoint)),
+    }));
+  }, [myLocation, friendLocations, meetingPoint]);
 
   const toggleFriend = (friendId) => {
     setSelectedFriendIds((prev) =>
@@ -527,20 +566,20 @@ const MapPage = () => {
             </>
           )}
 
-          {myLocation &&
-            meetingPoint &&
-            [myLocation, ...friendLocations].map((point) => (
-              <Polyline
-                key={`${point.lat}-${point.lng}`}
-                positions={[
-                  [point.lat, point.lng],
-                  [meetingPoint.lat, meetingPoint.lng],
-                ]}
-                pathOptions={{ color: "#f97316", weight: 3, opacity: 0.75 }}
-              >
-                <Tooltip className="line-tooltip">Route line</Tooltip>
-              </Polyline>
-            ))}
+          {travelLines.map((point) => (
+            <Polyline
+              key={`${point.id}-${point.lat}-${point.lng}`}
+              positions={[
+                [point.lat, point.lng],
+                [meetingPoint.lat, meetingPoint.lng],
+              ]}
+              pathOptions={{ color: "#f97316", weight: 3, opacity: 0.75 }}
+            >
+              <Tooltip className="line-tooltip" permanent>
+                {point.name}: {point.distanceLabel}
+              </Tooltip>
+            </Polyline>
+          ))}
 
           {coffeeShops.map((shop) => (
             <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={coffeeIcon}>
