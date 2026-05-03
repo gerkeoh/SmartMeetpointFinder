@@ -417,8 +417,13 @@ const MapPage = () => {
         return;
       }
 
-      setCoffeeShops(data.shops || []);
-      setStatus((data.shops || []).length ? "Coffee shops loaded." : "No coffee shops found nearby.");
+      const shops = data.shops || [];
+      setCoffeeShops(shops);
+      setStatus(
+        shops.length
+          ? `${shops.length} coffee shop${shops.length === 1 ? "" : "s"} loaded inside the ${meetingDiameterLabel} diameter.`
+          : `No coffee shops found inside the ${meetingDiameterLabel} diameter.`
+      );
     } catch (error) {
       setStatus("Could not find coffee shops.");
     } finally {
@@ -593,7 +598,15 @@ const MapPage = () => {
 
           {coffeeShops.map((shop) => (
             <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={coffeeIcon}>
-              <Popup>{shop.name}</Popup>
+              <Popup>
+                {shop.name}
+                {typeof shop.distanceMeters === "number" && (
+                  <>
+                    <br />
+                    {formatDistance(shop.distanceMeters)} from meeting point
+                  </>
+                )}
+              </Popup>
             </Marker>
           ))}
         </MapContainer>

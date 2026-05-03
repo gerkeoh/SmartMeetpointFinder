@@ -328,41 +328,66 @@ router.get("/coffee-shops", async (req, res) => {
       return res.status(400).json({ message: "Valid lat, lng, and radiusMeters are required." });
     }
 
-    const maxRadiusLimit = 50000;
-    let radius = radiusMeters;
-    let shops = [];
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const distanceMeters = (shopLat, shopLng) => {
+      const earthRadiusMeters = 6371000;
+      const dLat = toRad(shopLat - lat);
+      const dLng = toRad(shopLng - lng);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat)) * Math.cos(toRad(shopLat)) * Math.sin(dLng / 2) ** 2;
 
-    const buildQuery = (radiusValue) => `
+      return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    const query = `
       [out:json][timeout:25];
       (
-        node["amenity"="cafe"](around:${radiusValue},${lat},${lng});
-        node["shop"="coffee"](around:${radiusValue},${lat},${lng});
-        way["amenity"="cafe"](around:${radiusValue},${lat},${lng});
-        way["shop"="coffee"](around:${radiusValue},${lat},${lng});
-        relation["amenity"="cafe"](around:${radiusValue},${lat},${lng});
-        relation["shop"="coffee"](around:${radiusValue},${lat},${lng});
+        node["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
+        way["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
+        relation["amenity"="cafe"](around:${radiusMeters},${lat},${lng});
+        node["shop"="coffee"](around:${radiusMeters},${lat},${lng});
+        way["shop"="coffee"](around:${radiusMeters},${lat},${lng});
+        relation["shop"="coffee"](around:${radiusMeters},${lat},${lng});
+        node["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
+        way["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
+        relation["cuisine"="coffee_shop"](around:${radiusMeters},${lat},${lng});
       );
       out center;
     `;
 
-    while (radius <= maxRadiusLimit) {
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        body: buildQuery(Math.round(radius)),
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      });
+    const overpassEndpoints = [
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter",
+      "https://overpass.openstreetmap.ru/api/interpreter",
+    ];
 
-      if (!response.ok) {
-        radius = Math.min(radius * 2, maxRadiusLimit + 1);
-        continue;
-      }
+    let lastError = null;
 
-      const data = await response.json();
-      shops = (data.elements || [])
+    for (const endpoint of overpassEndpoints) {
+      try {
+        const url = `${endpoint}?${new URLSearchParams({ data: query })}`;
+        const response = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "SmartMeetpointFinder/1.0",
+          },
+        });
+
+        if (!response.ok) {
+          lastError = new Error(`Overpass request failed with ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json();
+        const shops = (data.elements || [])
         .map((element) => {
           const shopLat = element.lat ?? element.center?.lat;
           const shopLng = element.lon ?? element.center?.lon;
-          if (!shopLat || !shopLng) return null;
+          if (typeof shopLat !== "number" || typeof shopLng !== "number") return null;
+
+          const distanceFromMeetingPointMeters = distanceMeters(shopLat, shopLng);
+          if (distanceFromMeetingPointMeters > radiusMeters) return null;
 
           return {
             id: `${element.type}-${element.id}`,
@@ -370,15 +395,20 @@ router.get("/coffee-shops", async (req, res) => {
             type: element.tags?.amenity || element.tags?.shop || "coffee",
             lat: shopLat,
             lng: shopLng,
+            distanceMeters: Math.round(distanceFromMeetingPointMeters),
           };
         })
-        .filter(Boolean);
+          .filter(Boolean)
+          .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-      if (shops.length > 0) break;
-      radius = Math.min(radius * 2, maxRadiusLimit + 1);
+        return res.status(200).json({ shops });
+      } catch (error) {
+        lastError = error;
+      }
     }
 
-    return res.status(200).json({ shops });
+    console.error(lastError);
+    return res.status(502).json({ message: "Coffee shop search service is unavailable." });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Unable to load coffee shops." });
