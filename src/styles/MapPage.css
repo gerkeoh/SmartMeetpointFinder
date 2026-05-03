@@ -486,6 +486,23 @@
   font-weight: 700;
 }
 
+.place-search-field {
+  min-width: 0;
+}
+
+.place-search-field label {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.place-search-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  min-width: 0;
+}
+
 .place-search-controls select,
 .place-search-controls input {
   width: 100%;
@@ -510,16 +527,11 @@
   cursor: not-allowed;
 }
 
-.depart-control {
-  display: grid;
-  grid-template-columns: minmax(86px, 0.9fr) minmax(92px, 1fr);
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.depart-control select,
-.depart-control input {
-  min-width: 0;
+.inline-find-button {
+  align-self: stretch;
+  min-width: 118px;
+  padding-inline: 1rem;
+  white-space: nowrap;
 }
 
 .save-meetup-button,
@@ -882,6 +894,39 @@
   color: #fff;
   font-size: 12px;
   font-weight: 700;
+}
+
+.map-popup-actions {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 130px;
+}
+
+.map-popup-actions span {
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.map-popup-button {
+  width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: none;
+  border-radius: 9999px;
+  background: #475569;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.map-popup-button:hover {
+  background: #334155;
+}
+
+.map-popup-button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 
 @media (min-width: 980px) {

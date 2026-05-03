@@ -61,11 +61,6 @@ const travelModeOptions = [
   { value: "cycling", label: "Cycling" },
 ];
 
-const departureDayOptions = [
-  { value: "today", label: "Today" },
-  { value: "tomorrow", label: "Tomorrow" },
-];
-
 const placePinLabels = {
   coffee: "Cafe",
   cafe: "Cafe",
@@ -148,21 +143,6 @@ const formatPlaceType = (type) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-const buildDepartureDateTime = (day, time) => {
-  if (!time) return null;
-
-  const date = new Date();
-  if (day === "tomorrow") {
-    date.setDate(date.getDate() + 1);
-  }
-
-  const [hours, minutes] = time.split(":").map(Number);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-
-  date.setHours(hours, minutes, 0, 0);
-  return date.toISOString();
-};
-
 const MapPage = () => {
   const token = localStorage.getItem("token");
   const [friends, setFriends] = useState([]);
@@ -176,8 +156,6 @@ const MapPage = () => {
   const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
   const [selectedPlaceType, setSelectedPlaceType] = useState("all");
   const [travelMode, setTravelMode] = useState("driving");
-  const [departureDay, setDepartureDay] = useState("today");
-  const [departureTime, setDepartureTime] = useState("");
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
@@ -734,7 +712,6 @@ const MapPage = () => {
         body: JSON.stringify({
           transportMode: travelMode,
           trafficMode: "current",
-          departureTime: travelMode === "driving" ? buildDepartureDateTime(departureDay, departureTime) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -837,7 +814,6 @@ const MapPage = () => {
           },
           transportMode: travelMode,
           trafficMode: "current",
-          departureTime: travelMode === "driving" ? buildDepartureDateTime(departureDay, departureTime) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -924,60 +900,36 @@ const MapPage = () => {
               ))}
             </select>
           </label>
-          <label htmlFor="departure-time">
-            Depart at
-            <span className="depart-control">
-              <select
-                id="departure-day"
-                value={departureDay}
-                onChange={(event) => {
-                  setDepartureDay(event.target.value);
-                  setMeetingPoint(null);
-                  setCalculatedMeetingPoint(null);
-                  setPlaceSearchRadiusMeters(null);
-                  setCoffeeShops([]);
-                }}
-                disabled={travelMode !== "driving"}
-              >
-                {departureDayOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                id="departure-time"
-                type="time"
-                value={departureTime}
-                onChange={(event) => {
-                  setDepartureTime(event.target.value);
-                  setMeetingPoint(null);
-                  setCalculatedMeetingPoint(null);
-                  setPlaceSearchRadiusMeters(null);
-                  setCoffeeShops([]);
-                }}
-                disabled={travelMode !== "driving"}
-              />
-            </span>
-          </label>
-          <label htmlFor="place-type">
-            Search for
-            <select
-              id="place-type"
-              value={selectedPlaceType}
-              onChange={(event) => {
-                setSelectedPlaceType(event.target.value);
-                setCoffeeShops([]);
-                setPlaceSearchRadiusMeters(meetingPoint?.radiusMeters || null);
-              }}
-            >
-              {placeTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="place-search-field">
+            <label htmlFor="place-type">
+              Search for
+              <span className="place-search-control">
+                <select
+                  id="place-type"
+                  value={selectedPlaceType}
+                  onChange={(event) => {
+                    setSelectedPlaceType(event.target.value);
+                    setCoffeeShops([]);
+                    setPlaceSearchRadiusMeters(meetingPoint?.radiusMeters || null);
+                  }}
+                >
+                  {placeTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="clear-meetup-button inline-find-button"
+                  onClick={findCoffeeShops}
+                  disabled={!meetingPoint || loadingCoffee}
+                >
+                  {loadingCoffee ? "Finding..." : "Find Places"}
+                </button>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div className="meetup-actions">
@@ -989,25 +941,6 @@ const MapPage = () => {
           </button>
           <button type="button" className="clear-meetup-button" onClick={() => loadMeetup(meetupId)} disabled={!meetupId}>
             Refresh
-          </button>
-          <button type="button" className="clear-meetup-button" onClick={findCoffeeShops} disabled={!meetingPoint || loadingCoffee}>
-            {loadingCoffee ? "Finding..." : "Find Places"}
-          </button>
-          <button
-            type="button"
-            className="clear-meetup-button"
-            onClick={() => findCoffeeShops({ grow: true, autoExpand: false })}
-            disabled={!meetingPoint || loadingCoffee}
-          >
-            Grow Radius
-          </button>
-          <button
-            type="button"
-            className="clear-meetup-button"
-            onClick={undoPlacePreview}
-            disabled={!calculatedMeetingPoint || meetingPoint === calculatedMeetingPoint}
-          >
-            Undo Place
           </button>
         </div>
 
@@ -1279,6 +1212,20 @@ const MapPage = () => {
                 <Tooltip className="line-tooltip" permanent>
                   Diameter: {meetingDiameterLabel}
                 </Tooltip>
+                <Popup>
+                  <div className="map-popup-actions">
+                    <strong>Meet radius</strong>
+                    <span>Diameter: {meetingDiameterLabel}</span>
+                    <button
+                      type="button"
+                      className="map-popup-button"
+                      onClick={() => findCoffeeShops({ grow: true, autoExpand: false })}
+                      disabled={!meetingPoint || loadingCoffee}
+                    >
+                      {loadingCoffee ? "Growing..." : "Grow Radius"}
+                    </button>
+                  </div>
+                </Popup>
               </Circle>
             </>
           )}
@@ -1314,7 +1261,13 @@ const MapPage = () => {
                 <br />
                 {formatPlaceType(shop.type)}
                 <br />
-                Click pin to preview as meetup point
+                {meetingPoint?.selectedPlace?.id === shop.id ? (
+                  <button type="button" className="map-popup-button" onClick={undoPlacePreview}>
+                    Undo Place
+                  </button>
+                ) : (
+                  "Click pin to preview as meetup point"
+                )}
               </Popup>
             </Marker>
           ))}
