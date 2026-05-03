@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: smartmeetpointfinder
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run render-build
+    startCommand: npm run render-start
+    envVars:
+      - key: NODE_ENV
+        value: production

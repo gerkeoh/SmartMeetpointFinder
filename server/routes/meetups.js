@@ -313,7 +313,7 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/coffee-shops", async (req, res) => {
+async function findPlacesInRadius(req, res) {
   try {
     const lat = parseFloat(req.query.lat);
     const lng = parseFloat(req.query.lng);
@@ -401,18 +401,21 @@ router.get("/coffee-shops", async (req, res) => {
           (a, b) => a.distanceMeters - b.distanceMeters
         );
 
-        return res.status(200).json({ shops });
+        return res.status(200).json({ places: shops, shops });
       } catch (error) {
         lastError = error;
       }
     }
 
     console.error(lastError);
-    return res.status(502).json({ message: "Coffee shop search service is unavailable." });
+    return res.status(502).json({ message: "Place search service is unavailable." });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Unable to load coffee shops." });
+    return res.status(500).json({ message: "Unable to load places." });
   }
-});
+}
+
+router.get("/places", findPlacesInRadius);
+router.get("/coffee-shops", findPlacesInRadius);
 
 export default router;

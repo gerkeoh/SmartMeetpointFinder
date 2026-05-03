@@ -18,6 +18,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "render-build": "npm install --prefix server && npm run build",
+    "render-start": "node server/start.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

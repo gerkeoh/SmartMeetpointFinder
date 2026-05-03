@@ -412,7 +412,7 @@ const MapPage = () => {
       const radiusMeters = meetingPoint.radiusMeters || 1500;
       const res = await fetch(
         apiUrl(
-          `/api/coffee-shops?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}`
+          `/api/places?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}`
         )
       );
       const data = await res.json().catch(() => ({}));
@@ -422,7 +422,7 @@ const MapPage = () => {
         return;
       }
 
-      const shops = data.shops || [];
+      const shops = data.places || data.shops || [];
       setCoffeeShops(shops);
       setStatus(
         shops.length
