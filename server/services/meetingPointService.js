@@ -1,7 +1,7 @@
 const EARTH_RADIUS_KM = 6371;
 const OSRM_BASE_URL = "https://router.project-osrm.org";
 const ROUTE_TIMEOUT_MS = 9000;
-const CANDIDATE_COUNT = 9;
+const CANDIDATE_COUNT = 25;
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 const toDeg = (rad) => (rad * 180) / Math.PI;
@@ -159,20 +159,25 @@ async function getOsrmRoute(from, to, profile) {
   };
 }
 
-async function getTomTomDuration(from, to, profile) {
+async function getTomTomRoute(from, to, profile, trafficMode = "off") {
   const apiKey = process.env.TOMTOM_API_KEY || process.env.REACT_APP_TOMTOM_API_KEY;
   if (!apiKey) return null;
 
   const params = new URLSearchParams({
     key: apiKey,
-    traffic: "true",
     travelMode: profile.tomtom,
     routeType: "fastest",
-    computeTravelTimeFor: "all",
   });
+
+  if (profile === transportProfiles.driving) {
+    params.set("traffic", trafficMode === "current" ? "true" : "false");
+    params.set("computeTravelTimeFor", trafficMode === "current" ? "all" : "none");
+  }
+
   const url = `https://api.tomtom.com/routing/1/calculateRoute/${from.lat},${from.lng}:${to.lat},${to.lng}/json?${params}`;
   const data = await fetchJson(url);
-  const summary = data.routes?.[0]?.summary;
+  const route = data.routes?.[0];
+  const summary = route?.summary;
 
   if (!summary) return null;
 
@@ -190,10 +195,16 @@ async function getTomTomDuration(from, to, profile) {
 
   if (typeof durationSeconds !== "number") return null;
 
+  const coordinates =
+    route.legs
+      ?.flatMap((leg) => leg.points || [])
+      .map((point) => [point.latitude, point.longitude]) || [];
+
   return {
     durationSeconds,
     distanceMeters: summary.lengthInMeters,
-    source: "tomtom-traffic",
+    coordinates,
+    source: trafficMode === "current" && profile === transportProfiles.driving ? "tomtom-traffic" : "tomtom",
   };
 }
 
@@ -216,25 +227,25 @@ async function getRoute(from, to, profile, trafficMode = "off") {
   let route = null;
 
   try {
+    route = await getTomTomRoute(from, to, profile, trafficMode);
+  } catch (error) {
+    route = null;
+  }
+
+  if (route) {
+    return {
+      ...route,
+      durationSeconds:
+        trafficMode === "rush" || trafficMode === "quiet"
+          ? route.durationSeconds * trafficMultiplier(trafficMode)
+          : route.durationSeconds,
+    };
+  }
+
+  try {
     route = await getOsrmRoute(from, to, profile);
   } catch (error) {
     route = fallbackRoute(from, to, profile);
-  }
-
-  if (profile === transportProfiles.driving && trafficMode === "current") {
-    try {
-      const trafficRoute = await getTomTomDuration(from, to, profile);
-      if (trafficRoute) {
-        return {
-          ...route,
-          distanceMeters: trafficRoute.distanceMeters || route.distanceMeters,
-          durationSeconds: trafficRoute.durationSeconds,
-          source: trafficRoute.source,
-        };
-      }
-    } catch (error) {
-      return route;
-    }
   }
 
   return {
@@ -277,7 +288,7 @@ function sampleRouteCandidates(routeCoordinates, fallbackCenter) {
   for (let i = 1; i <= CANDIDATE_COUNT; i += 1) {
     const target = (total * i) / (CANDIDATE_COUNT + 1);
     const index = distances.findIndex((distance) => distance >= target);
-    const safeIndex = Math.max(1, index);
+    const safeIndex = index === -1 ? distances.length - 1 : Math.max(1, index);
     const segmentStart = routeCoordinates[safeIndex - 1];
     const segmentEnd = routeCoordinates[safeIndex];
     const segmentDistance = distances[safeIndex] - distances[safeIndex - 1] || 1;
@@ -291,14 +302,17 @@ function sampleRouteCandidates(routeCoordinates, fallbackCenter) {
 
 function scoreTravelTimes(travelTimes) {
   const maxTime = Math.max(...travelTimes);
+  const minTime = Math.min(...travelTimes);
   const avgTime = travelTimes.reduce((sum, value) => sum + value, 0) / travelTimes.length;
-  const spreadPenalty = stdDev(travelTimes);
+  const standardDeviation = stdDev(travelTimes);
+  const spreadPenalty = maxTime - minTime;
 
   return {
     maxTime,
     avgTime,
     spreadPenalty,
-    score: maxTime * 0.6 + avgTime * 0.25 + spreadPenalty * 0.15,
+    standardDeviation,
+    score: spreadPenalty * 100 + standardDeviation * 20 + maxTime * 0.15 + avgTime * 0.05,
   };
 }
 
