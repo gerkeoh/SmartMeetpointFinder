@@ -46,12 +46,42 @@ const meetingIcon = L.divIcon({
   iconAnchor: [29, 58],
 });
 
-const coffeeIcon = L.divIcon({
-  className: "custom-pin",
-  html: '<div class="pin coffee-pin"><span class="pin-text">Place</span></div>',
-  iconSize: [48, 48],
-  iconAnchor: [24, 48],
-});
+const placeTypeOptions = [
+  { value: "all", label: "All places" },
+  { value: "coffee", label: "Coffee shops" },
+  { value: "restaurant", label: "Restaurants" },
+  { value: "pub", label: "Pubs" },
+  { value: "bar", label: "Bars" },
+  { value: "fast_food", label: "Fast food" },
+];
+
+const placePinLabels = {
+  coffee: "Cafe",
+  cafe: "Cafe",
+  restaurant: "Food",
+  pub: "Pub",
+  bar: "Bar",
+  fast_food: "Fast",
+};
+
+const getPlacePinType = (type) => {
+  if (type === "cafe") return "coffee";
+  if (placePinLabels[type]) return type;
+  return "place";
+};
+
+const createPlaceIcon = (type) => {
+  const pinType = getPlacePinType(type);
+
+  return L.divIcon({
+    className: "custom-pin",
+    html: `<div class="pin place-pin place-pin-${pinType}"><span class="pin-text">${
+      placePinLabels[pinType] || "Place"
+    }</span></div>`,
+    iconSize: [48, 48],
+    iconAnchor: [24, 48],
+  });
+};
 
 function MapBounds({ points }) {
   const map = useMap();
@@ -109,6 +139,7 @@ const MapPage = () => {
   const [friendLocations, setFriendLocations] = useState([]);
   const [meetingPoint, setMeetingPoint] = useState(null);
   const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
+  const [selectedPlaceType, setSelectedPlaceType] = useState("all");
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
@@ -622,7 +653,7 @@ const MapPage = () => {
       const radiusMeters = grow ? Math.min(baseRadiusMeters * 2, 10000) : baseRadiusMeters;
       const res = await fetch(
         apiUrl(
-          `/api/places?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}&expand=${autoExpand}`
+          `/api/places?lat=${meetingPoint.lat}&lng=${meetingPoint.lng}&radiusMeters=${radiusMeters}&expand=${autoExpand}&type=${selectedPlaceType}`
         )
       );
       const data = await res.json().catch(() => ({}));
@@ -636,12 +667,15 @@ const MapPage = () => {
       const usedRadiusMeters = data.radiusMeters || radiusMeters;
       setPlaceSearchRadiusMeters(usedRadiusMeters);
       setCoffeeShops(shops);
+      const selectedPlaceOption = placeTypeOptions.find((option) => option.value === selectedPlaceType);
+      const placeTypeLabel =
+        selectedPlaceType === "all" ? "places" : selectedPlaceOption?.label.toLowerCase() || "places";
       setStatus(
         shops.length
-          ? `${shops.length} place${shops.length === 1 ? "" : "s"} loaded inside the ${formatDistance(
+          ? `${shops.length} ${placeTypeLabel} loaded inside the ${formatDistance(
               usedRadiusMeters * 2
             )} diameter${data.expanded ? " after expanding the radius" : ""}.`
-          : `No places found inside the ${formatDistance(usedRadiusMeters * 2)} diameter.`
+          : `No ${placeTypeLabel} found inside the ${formatDistance(usedRadiusMeters * 2)} diameter.`
       );
     } catch (error) {
       setStatus("Could not reach the place search. Check that the backend is running.");
@@ -652,6 +686,8 @@ const MapPage = () => {
 
   return (
     <div className="map-page-container">
+      <div className="map-page-layout">
+        <div className="map-side-panel">
       <div className="meetup-card">
         <div className="meetup-card-header">
           <div>
@@ -666,23 +702,46 @@ const MapPage = () => {
         <div className="meetup-form-grid">
           <label className="meetup-title-field" htmlFor="meetup-title">
             Meetup Title
-            <input
-              id="meetup-title"
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="Friday coffee, study meetup, lunch plan..."
-              maxLength={80}
-            />
+            <span className="meetup-title-control">
+              <input
+                id="meetup-title"
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Friday coffee, study meetup, lunch plan..."
+                maxLength={80}
+              />
+              <button type="button" className="save-meetup-button" onClick={createMeetup} disabled={savingMeetup}>
+                {savingMeetup ? "Creating..." : "Create Meetup"}
+              </button>
+            </span>
+          </label>
+        </div>
+
+        <div className="place-search-controls">
+          <label htmlFor="place-type">
+            Search for
+            <select
+              id="place-type"
+              value={selectedPlaceType}
+              onChange={(event) => {
+                setSelectedPlaceType(event.target.value);
+                setCoffeeShops([]);
+                setPlaceSearchRadiusMeters(meetingPoint?.radiusMeters || null);
+              }}
+            >
+              {placeTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
         <div className="meetup-actions">
           <button type="button" className="save-meetup-button" onClick={getMyLocation} disabled={loadingLocation}>
             {loadingLocation ? "Locating..." : "Use My Location"}
-          </button>
-          <button type="button" className="save-meetup-button" onClick={createMeetup} disabled={savingMeetup}>
-            {savingMeetup ? "Creating..." : "Create Meetup"}
           </button>
           <button type="button" className="save-meetup-button" onClick={shareMyLocationToMeetup}>
             Share Location
@@ -866,7 +925,57 @@ const MapPage = () => {
         <p className="meetup-status-message">{status}</p>
       </div>
 
-      <div className="map-wrapper">
+        <div className="previous-meetups-panel">
+          <div className="previous-meetups-header">
+            <button
+              type="button"
+              className="previous-meetups-toggle"
+              onClick={() => setPreviousMeetupsOpen((open) => !open)}
+            >
+              <span>
+                <strong>Previous Meetups</strong>
+                <small>
+                  {previousMeetups.length} meetup{previousMeetups.length === 1 ? "" : "s"}
+                </small>
+              </span>
+              <b>{previousMeetupsOpen ? "Hide" : "Show"}</b>
+            </button>
+            <button
+              type="button"
+              className="clear-meetup-button compact-action-button"
+              onClick={loadPreviousMeetups}
+              disabled={loadingPreviousMeetups}
+            >
+              {loadingPreviousMeetups ? "Loading..." : "Refresh"}
+            </button>
+          </div>
+
+          {previousMeetupsOpen &&
+            (previousMeetups.length === 0 ? (
+              <p>No previous meetups yet.</p>
+            ) : (
+              <div className="previous-meetups-list">
+                {previousMeetups.map((meetup) => (
+                  <button
+                    key={meetup.id}
+                    type="button"
+                    className={`previous-meetup-row${meetupId === meetup.id ? " active" : ""}`}
+                    onClick={() => loadMeetup(meetup.id)}
+                  >
+                    <span>
+                      <strong>{meetup.title || "Untitled meetup"}</strong>
+                      <small>{meetup.status?.replace(/_/g, " ") || "created"}</small>
+                    </span>
+                    <b>{meetup.participantIds?.length || 0}</b>
+                  </button>
+                ))}
+              </div>
+            ))}
+        </div>
+      </div>
+
+      <div className="map-column">
+        <div className="map-wrapper">
         <MapContainer
           center={myLocation ? [myLocation.lat, myLocation.lng] : defaultCenter}
           zoom={myLocation ? 15 : 12}
@@ -925,7 +1034,7 @@ const MapPage = () => {
           ))}
 
           {coffeeShops.map((shop) => (
-            <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={coffeeIcon}>
+            <Marker key={shop.id} position={[shop.lat, shop.lng]} icon={createPlaceIcon(shop.type)}>
               <Popup>
                 {shop.name}
                 {typeof shop.distanceMeters === "number" && (
@@ -941,53 +1050,7 @@ const MapPage = () => {
           ))}
         </MapContainer>
       </div>
-
-      <div className="previous-meetups-panel">
-        <div className="previous-meetups-header">
-          <button
-            type="button"
-            className="previous-meetups-toggle"
-            onClick={() => setPreviousMeetupsOpen((open) => !open)}
-          >
-            <span>
-              <strong>Previous Meetups</strong>
-              <small>
-                {previousMeetups.length} meetup{previousMeetups.length === 1 ? "" : "s"}
-              </small>
-            </span>
-            <b>{previousMeetupsOpen ? "Hide" : "Show"}</b>
-          </button>
-          <button
-            type="button"
-            className="clear-meetup-button compact-action-button"
-            onClick={loadPreviousMeetups}
-            disabled={loadingPreviousMeetups}
-          >
-            {loadingPreviousMeetups ? "Loading..." : "Refresh"}
-          </button>
-        </div>
-
-        {previousMeetupsOpen &&
-          (previousMeetups.length === 0 ? (
-            <p>No previous meetups yet.</p>
-          ) : (
-            <div className="previous-meetups-list">
-              {previousMeetups.map((meetup) => (
-                <button
-                  key={meetup.id}
-                  type="button"
-                  className={`previous-meetup-row${meetupId === meetup.id ? " active" : ""}`}
-                  onClick={() => loadMeetup(meetup.id)}
-                >
-                  <span>
-                    <strong>{meetup.title || "Untitled meetup"}</strong>
-                    <small>{meetup.status?.replace(/_/g, " ") || "created"}</small>
-                  </span>
-                  <b>{meetup.participantIds?.length || 0}</b>
-                </button>
-              ))}
-            </div>
-          ))}
+      </div>
       </div>
     </div>
   );

@@ -627,6 +627,9 @@ async function findPlacesInRadius(req, res) {
     const lng = parseFloat(req.query.lng);
     const radiusMeters = parseInt(req.query.radiusMeters, 10);
     const expandWhenEmpty = req.query.expand === "true";
+    const requestedType = typeof req.query.type === "string" ? req.query.type : "all";
+    const allowedTypes = new Set(["all", "coffee", "restaurant", "pub", "bar", "fast_food"]);
+    const placeType = allowedTypes.has(requestedType) ? requestedType : "all";
 
     if (
       Number.isNaN(lat) ||
@@ -649,15 +652,31 @@ async function findPlacesInRadius(req, res) {
       return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
 
-    const buildQuery = (searchRadiusMeters) => `
-      [out:json][timeout:25];
-      (
-        nwr["amenity"~"^(cafe|restaurant|pub|bar|fast_food)$"](around:${searchRadiusMeters},${lat},${lng});
+    const buildQuery = (searchRadiusMeters) => {
+      const coffeeQueries = `
+        nwr["amenity"="cafe"](around:${searchRadiusMeters},${lat},${lng});
         nwr["shop"="coffee"](around:${searchRadiusMeters},${lat},${lng});
         nwr["cuisine"="coffee_shop"](around:${searchRadiusMeters},${lat},${lng});
-      );
-      out center;
-    `;
+      `;
+      const queryBody =
+        placeType === "all"
+          ? `
+            nwr["amenity"~"^(cafe|restaurant|pub|bar|fast_food)$"](around:${searchRadiusMeters},${lat},${lng});
+            nwr["shop"="coffee"](around:${searchRadiusMeters},${lat},${lng});
+            nwr["cuisine"="coffee_shop"](around:${searchRadiusMeters},${lat},${lng});
+          `
+          : placeType === "coffee"
+            ? coffeeQueries
+            : `nwr["amenity"="${placeType}"](around:${searchRadiusMeters},${lat},${lng});`;
+
+      return `
+        [out:json][timeout:25];
+        (
+          ${queryBody}
+        );
+        out center;
+      `;
+    };
 
     const overpassEndpoints = [
       "https://overpass-api.de/api/interpreter",
@@ -702,7 +721,10 @@ async function findPlacesInRadius(req, res) {
               return {
                 id: `${element.type}-${element.id}`,
                 name: element.tags?.name || "Place",
-                type: element.tags?.amenity || element.tags?.shop || "place",
+                type:
+                  element.tags?.shop === "coffee" || element.tags?.cuisine === "coffee_shop"
+                    ? "coffee"
+                    : element.tags?.amenity || element.tags?.shop || "place",
                 lat: shopLat,
                 lng: shopLng,
                 distanceMeters: Math.round(distanceFromMeetingPointMeters),
@@ -721,6 +743,7 @@ async function findPlacesInRadius(req, res) {
               shops,
               radiusMeters: currentRadiusMeters,
               expanded: currentRadiusMeters > radiusMeters,
+              placeType,
             });
           }
         } catch (error) {
