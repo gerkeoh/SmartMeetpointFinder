@@ -415,7 +415,11 @@ router.post("/meetups/:meetupId/calculate", requireAuth, async (req, res) => {
       lat: participant.location.lat,
       lng: participant.location.lng,
     }));
-    const result = calculateBestMeetingPoint(algorithmInput);
+    const { transportMode = "driving", trafficMode = "off" } = req.body || {};
+    const result = await calculateBestMeetingPoint(algorithmInput, {
+      transportMode,
+      trafficMode,
+    });
 
     await db.collection(MEETUPS).updateOne(
       { _id: meetup._id },

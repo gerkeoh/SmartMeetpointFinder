@@ -55,6 +55,19 @@ const placeTypeOptions = [
   { value: "fast_food", label: "Fast food" },
 ];
 
+const travelModeOptions = [
+  { value: "driving", label: "Driving" },
+  { value: "walking", label: "Walking" },
+  { value: "cycling", label: "Cycling" },
+];
+
+const trafficOptions = [
+  { value: "off", label: "No traffic" },
+  { value: "current", label: "Current traffic" },
+  { value: "rush", label: "Rush hour" },
+  { value: "quiet", label: "Quiet roads" },
+];
+
 const placePinLabels = {
   coffee: "Cafe",
   cafe: "Cafe",
@@ -124,6 +137,14 @@ const formatDistance = (meters) => {
   return `${(meters / metersInKilometer).toFixed(1)} km`;
 };
 
+const formatDuration = (minutes) => {
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  return `${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ""}`;
+};
+
 const formatPlaceType = (type) =>
   (type || "place")
     .replace(/_/g, " ")
@@ -140,6 +161,8 @@ const MapPage = () => {
   const [meetingPoint, setMeetingPoint] = useState(null);
   const [placeSearchRadiusMeters, setPlaceSearchRadiusMeters] = useState(null);
   const [selectedPlaceType, setSelectedPlaceType] = useState("all");
+  const [travelMode, setTravelMode] = useState("driving");
+  const [trafficMode, setTrafficMode] = useState("off");
   const [coffeeShops, setCoffeeShops] = useState([]);
   const [status, setStatus] = useState("Start your meetup by loading your location.");
   const [title, setTitle] = useState("");
@@ -258,6 +281,41 @@ const MapPage = () => {
   const travelLines = useMemo(() => {
     if (!meetingPoint) return [];
 
+    const participantLookup = new Map(
+      participants.map((participant) => [
+        participant.userId,
+        {
+          id: participant.userId,
+          name: participant.isCurrentUser ? "You" : participant.username || "Friend",
+          lat: participant.location?.lat,
+          lng: participant.location?.lng,
+        },
+      ])
+    );
+
+    if (Array.isArray(meetingPoint.participantRoutes) && meetingPoint.participantRoutes.length) {
+      return meetingPoint.participantRoutes
+        .map((route) => {
+          const participant = participantLookup.get(route.userId);
+          if (!participant) return null;
+
+          return {
+            ...participant,
+            positions:
+              Array.isArray(route.coordinates) && route.coordinates.length > 1
+                ? route.coordinates
+                : [
+                    [participant.lat, participant.lng],
+                    [meetingPoint.lat, meetingPoint.lng],
+                  ],
+            distanceLabel: formatDistance((route.distanceKm || 0) * metersInKilometer),
+            durationLabel:
+              typeof route.durationMinutes === "number" ? formatDuration(route.durationMinutes) : "",
+          };
+        })
+        .filter(Boolean);
+    }
+
     const locations = [
       ...(myLocation ? [{ ...myLocation, id: "current-user", name: "You" }] : []),
       ...friendLocations,
@@ -265,9 +323,14 @@ const MapPage = () => {
 
     return locations.map((point) => ({
       ...point,
+      positions: [
+        [point.lat, point.lng],
+        [meetingPoint.lat, meetingPoint.lng],
+      ],
       distanceLabel: formatDistance(getDistanceMeters(point, meetingPoint)),
+      durationLabel: "",
     }));
-  }, [myLocation, friendLocations, meetingPoint]);
+  }, [myLocation, friendLocations, meetingPoint, participants]);
 
   const meetingDiameterLabel = useMemo(() => {
     if (!meetingPoint) return "";
@@ -619,6 +682,7 @@ const MapPage = () => {
       const res = await fetch(apiUrl(`/api/meetups/${meetupId}/calculate`), {
         method: "POST",
         headers: authHeaders,
+        body: JSON.stringify({ transportMode: travelMode, trafficMode }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -630,7 +694,13 @@ const MapPage = () => {
       setMeetingPoint(data.meetingPoint || null);
       setPlaceSearchRadiusMeters(data.meetingPoint?.radiusMeters || null);
       await loadMeetup(meetupId);
-      setStatus("Meeting point calculated.");
+      const modeLabel = travelModeOptions.find((option) => option.value === travelMode)?.label || "route";
+      const routeSource = data.meetingPoint?.routeSource || "";
+      setStatus(
+        trafficMode === "current" && !routeSource.includes("tomtom")
+          ? `Meeting point calculated for ${modeLabel.toLowerCase()} routes. Add TOMTOM_API_KEY for live traffic.`
+          : `Meeting point calculated for ${modeLabel.toLowerCase()} routes.`
+      );
     } catch (error) {
       setStatus("Something went wrong while calculating.");
     }
@@ -719,6 +789,45 @@ const MapPage = () => {
         </div>
 
         <div className="place-search-controls">
+          <label htmlFor="travel-mode">
+            Route by
+            <select
+              id="travel-mode"
+              value={travelMode}
+              onChange={(event) => {
+                setTravelMode(event.target.value);
+                setMeetingPoint(null);
+                setPlaceSearchRadiusMeters(null);
+                setCoffeeShops([]);
+              }}
+            >
+              {travelModeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="traffic-mode">
+            Traffic
+            <select
+              id="traffic-mode"
+              value={trafficMode}
+              onChange={(event) => {
+                setTrafficMode(event.target.value);
+                setMeetingPoint(null);
+                setPlaceSearchRadiusMeters(null);
+                setCoffeeShops([]);
+              }}
+              disabled={travelMode !== "driving"}
+            >
+              {trafficOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label htmlFor="place-type">
             Search for
             <select
@@ -1021,14 +1130,12 @@ const MapPage = () => {
           {travelLines.map((point) => (
             <Polyline
               key={`${point.id}-${point.lat}-${point.lng}`}
-              positions={[
-                [point.lat, point.lng],
-                [meetingPoint.lat, meetingPoint.lng],
-              ]}
+              positions={point.positions}
               pathOptions={{ color: "#f97316", weight: 3, opacity: 0.75 }}
             >
               <Tooltip className="line-tooltip" permanent>
-                {point.name}: {point.distanceLabel}
+                {point.name}: {point.durationLabel ? `${point.durationLabel}, ` : ""}
+                {point.distanceLabel}
               </Tooltip>
             </Polyline>
           ))}
