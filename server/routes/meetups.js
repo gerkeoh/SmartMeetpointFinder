@@ -200,6 +200,53 @@ router.post("/meetup-invitations/:invitationId/accept", requireAuth, async (req,
   }
 });
 
+router.post("/meetup-invitations/:invitationId/reject", requireAuth, async (req, res) => {
+  try {
+    if (!ObjectId.isValid(req.params.invitationId)) {
+      return res.status(400).json({ message: "Invalid invitation id." });
+    }
+
+    const invitedUserId = new ObjectId(req.user.id);
+    const invitationId = new ObjectId(req.params.invitationId);
+    const invitation = await db.collection(INVITATIONS).findOne({
+      _id: invitationId,
+      invitedUserId,
+      status: "pending",
+    });
+
+    if (!invitation) {
+      return res.status(404).json({ message: "Invitation not found." });
+    }
+
+    const now = new Date();
+    await Promise.all([
+      db.collection(INVITATIONS).updateOne(
+        { _id: invitationId },
+        { $set: { status: "rejected", updatedAt: now, rejectedAt: now } }
+      ),
+      db.collection(MEETUPS).updateOne(
+        { _id: invitation.meetupId },
+        {
+          $pull: {
+            invitedUserIds: invitedUserId,
+            participantIds: invitedUserId,
+          },
+          $set: { updatedAt: now },
+        }
+      ),
+      db.collection(PARTICIPANTS).deleteOne({
+        meetupId: invitation.meetupId,
+        userId: invitedUserId,
+      }),
+    ]);
+
+    return res.status(200).json({ message: "Invitation rejected." });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Server error." });
+  }
+});
+
 router.post("/meetups", requireAuth, async (req, res) => {
   try {
     const creatorId = new ObjectId(req.user.id);

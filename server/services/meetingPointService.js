@@ -306,7 +306,6 @@ function sampleRouteCandidates(routeCoordinates, fallbackCenter) {
     candidates.push(interpolatePoint(segmentStart, segmentEnd, ratio));
   }
 
-  candidates.push(fallbackCenter);
   return candidates;
 }
 
@@ -353,14 +352,17 @@ function splitRouteAtDistance(routeCoordinates, targetDistanceMeters) {
   };
 }
 
-function buildTwoPersonHumanRouteResult(participants, route, profile, options) {
+function buildTwoPersonFairRouteResult(participants, route, profile, options) {
   const routeDistances = cumulativeDistances(route.coordinates);
   const routeGeometryDistanceMeters = routeDistances[routeDistances.length - 1] || route.distanceMeters;
   const split = splitRouteAtDistance(route.coordinates, routeGeometryDistanceMeters / 2);
   if (!split) return null;
 
   const halfDistanceKm = split.totalDistanceMeters / 2 / 1000;
-  const durationMinutes = (halfDistanceKm / profile.fallbackSpeedKmh) * 60;
+  const durationMinutes =
+    profile === transportProfiles.driving
+      ? route.durationSeconds / 2 / 60
+      : (halfDistanceKm / profile.fallbackSpeedKmh) * 60;
   const firstRoute = {
     userId: participants[0].userId,
     durationMinutes,
@@ -540,8 +542,8 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
     routeBetweenFarthest = fallbackRoute(farthestPair.a, farthestPair.b, profile);
   }
 
-  if (participants.length === 2 && transportMode !== "driving") {
-    const twoPersonResult = buildTwoPersonHumanRouteResult(participants, routeBetweenFarthest, profile, {
+  if (participants.length === 2) {
+    const twoPersonResult = buildTwoPersonFairRouteResult(participants, routeBetweenFarthest, profile, {
       transportMode,
       trafficMode,
       departureTime,
@@ -569,7 +571,7 @@ export async function calculateBestMeetingPoint(participants, options = {}) {
           diameterKm: Number(diameterKm.toFixed(2)),
           radiusKm: Number(radiusKm.toFixed(2)),
           candidateCount: 1,
-          method: "halfway_along_route",
+          method: "fair_halfway_along_route",
         },
       };
     }

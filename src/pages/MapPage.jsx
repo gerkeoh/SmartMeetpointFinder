@@ -192,6 +192,7 @@ const MapPage = () => {
   const [savingMeetup, setSavingMeetup] = useState(false);
   const [loadingCoffee, setLoadingCoffee] = useState(false);
   const [acceptingInvitationId, setAcceptingInvitationId] = useState("");
+  const [rejectingInvitationId, setRejectingInvitationId] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const [loadingPreviousMeetups, setLoadingPreviousMeetups] = useState(false);
   const [previewingPlaceId, setPreviewingPlaceId] = useState("");
@@ -537,6 +538,37 @@ const MapPage = () => {
       setStatus("Something went wrong while accepting the invitation.");
     } finally {
       setAcceptingInvitationId("");
+    }
+  };
+
+  const rejectInvitation = async (invitationId) => {
+    if (!token) {
+      setStatus("Please log in first.");
+      return;
+    }
+
+    try {
+      setRejectingInvitationId(invitationId);
+      setStatus("Rejecting invitation...");
+
+      const res = await fetch(apiUrl(`/api/meetup-invitations/${invitationId}/reject`), {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setStatus(data.message || "Could not reject invitation.");
+        return;
+      }
+
+      await loadInvitations();
+      await loadPreviousMeetups();
+      setStatus("Invitation rejected.");
+    } catch (error) {
+      setStatus("Something went wrong while rejecting the invitation.");
+    } finally {
+      setRejectingInvitationId("");
     }
   };
 
@@ -1078,14 +1110,24 @@ const MapPage = () => {
                       <strong>{invitation.title}</strong>
                       <small>From {invitation.fromUsername}</small>
                     </span>
-                    <button
-                      type="button"
-                      className="save-meetup-button compact-action-button"
-                      onClick={() => acceptInvitation(invitation.id)}
-                      disabled={acceptingInvitationId === invitation.id}
-                    >
-                      {acceptingInvitationId === invitation.id ? "Accepting..." : "Accept"}
-                    </button>
+                    <span className="invitation-actions">
+                      <button
+                        type="button"
+                        className="save-meetup-button compact-action-button"
+                        onClick={() => acceptInvitation(invitation.id)}
+                        disabled={acceptingInvitationId === invitation.id || rejectingInvitationId === invitation.id}
+                      >
+                        {acceptingInvitationId === invitation.id ? "Accepting..." : "Accept"}
+                      </button>
+                      <button
+                        type="button"
+                        className="clear-meetup-button compact-action-button"
+                        onClick={() => rejectInvitation(invitation.id)}
+                        disabled={acceptingInvitationId === invitation.id || rejectingInvitationId === invitation.id}
+                      >
+                        {rejectingInvitationId === invitation.id ? "Rejecting..." : "Reject"}
+                      </button>
+                    </span>
                   </div>
                 ))}
               </div>
